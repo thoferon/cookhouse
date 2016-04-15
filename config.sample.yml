@@ -1,0 +1,18 @@
+---
+port: 3001
+database:
+  user: _postgresql
+  password: ""
+  host: 127.0.0.1
+  port: 5432
+  name: cookhouse
+cors-origins: []
+build-directory: /var/cookhouse
+projects:
+  - identifier: cookhouse
+    source:
+      plugin: darcs
+      location: http://darcs.redspline.com/cookhouse
+    triggers:
+      - plugin: darcs
+    build-steps: []
