@@ -1,4 +1,4 @@
-module Cookhouse.Data.Plan where
+module Cookhouse.Data.Job where
 
 import           Data.Aeson
 import           Data.List
@@ -10,6 +10,7 @@ import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.ToField
 import           Database.PostgreSQL.Simple.ToRow
 
+import           Cookhouse.Capabilities
 import           Cookhouse.Data.Project
 import           Cookhouse.Data.Internal
 import           Cookhouse.Data.Types
@@ -20,6 +21,7 @@ data JobStatus
   | JobSuccess
   | JobFailure
   | JobRollbacked
+  deriving (Eq, Show)
 
 instance PureFromField JobStatus where
   pureFromField = do
@@ -52,7 +54,7 @@ jobStatusToString typ = case typ of
   JobFailure    -> "failure"
   JobRollbacked -> "rollbacked"
 
-data JobType = Build | PostBuild
+data JobType = Build | PostBuild deriving (Eq, Show)
 
 instance PureFromField JobType where
   pureFromField = do
@@ -85,7 +87,7 @@ data Job = Job
   , jobProjectIdentifier :: ProjectIdentifier
   , jobDependencies      :: [EntityID Job]
   , jobPath              :: Maybe FilePath
-  }
+  } deriving (Eq, Show)
 
 instance PureFromRow Job where
   pureFromRow =
@@ -101,7 +103,7 @@ instance ToRow Job where
     ]
 
 instance Storable Job where
-  data EntityID Job = JobID { unJobID :: Int64 }
+  data EntityID Job = JobID { unJobID :: Int64 } deriving (Eq, Show)
 
   tableName  _ = "jobs"
   fieldNames _ = [ "type", "status", "project_identifier", "dependencies"
@@ -113,3 +115,15 @@ instance PureFromField (EntityID Job) where
 
 instance ToField (EntityID Job) where
   toField = toField . unJobID
+
+createJob :: MonadDataLayer m => JobType -> ProjectIdentifier -> [EntityID Job]
+          -> m (EntityID Job)
+createJob typ identifier deps = do
+  ensureAccess CACreateJob
+  create Job
+    { jobType              = typ
+    , jobStatus            = JobInQueue
+    , jobProjectIdentifier = identifier
+    , jobDependencies      = deps
+    , jobPath              = Nothing
+    }

@@ -7,13 +7,16 @@ import Network.HTTP.Types.Status
 import Cookhouse.Capabilities
 
 data CookhouseError
-  = SQLError (Maybe SomeException)
+  = SQLError String
   | SQLRecordNotFoundError
+  | SQLInvalidFieldError String
   | ParamError String
   | ValidationError String String
   | PermissionError CookhouseAccess
   | AuthenticationPluginError String String
-  deriving Show
+  | IncorrectProjectIdentifierError String
+  | CircularDependencyError String
+  deriving (Eq, Show)
 
 class HttpError e where
   errStatusAndMsg :: e -> (Status, String)
@@ -29,20 +32,25 @@ instance HttpError CookhouseError where
     PermissionError _      -> (unauthorized401, "Permission denied.")
     AuthenticationPluginError name msg ->
       ( unauthorized401
-      , "Authentication plugin \"" ++ name ++ "\" failed: " ++ msg
-      )
+      , "Authentication plugin \"" ++ name ++ "\" failed: " ++ msg )
+    IncorrectProjectIdentifierError identifier ->
+      ( internalServerError500
+      , "Incorrect project identifier: " ++ identifier )
+    CircularDependencyError identifier ->
+      ( internalServerError500
+      , "Circular dependency around " ++ identifier ++ "." )
 
 cantBeBlankError :: String -> CookhouseError
-cantBeBlankError = flip ValidationError "Can't be blank"
+cantBeBlankError = flip ValidationError "Can't be blank."
 
 cantBeEmptyError :: String -> CookhouseError
-cantBeEmptyError = flip ValidationError "Can't be empty"
+cantBeEmptyError = flip ValidationError "Can't be empty."
 
 alreadyTakenError :: String -> CookhouseError
-alreadyTakenError = flip ValidationError "Already taken"
+alreadyTakenError = flip ValidationError "Already taken."
 
 notFoundError :: String -> CookhouseError
-notFoundError = flip ValidationError "Not found"
+notFoundError = flip ValidationError "Not found."
 
 isInvalidError :: String -> CookhouseError
-isInvalidError = flip ValidationError "Is invalid"
+isInvalidError = flip ValidationError "Is invalid."

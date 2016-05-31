@@ -23,6 +23,7 @@ library
                        OverloadedStrings
                        TypeFamilies
                        RecordWildCards
+                       FlexibleInstances
 
   exposed-modules:     Cookhouse
                        Cookhouse.Actions.Helpers
@@ -33,11 +34,12 @@ library
                        Cookhouse.Capabilities
                        Cookhouse.Config
                        Cookhouse.Data.Internal
-                       Cookhouse.Data.Plan
+                       Cookhouse.Data.Job
                        Cookhouse.Data.Project
                        Cookhouse.Data.Types
                        Cookhouse.Environment
                        Cookhouse.Errors
+                       Cookhouse.Logic.JobGeneration
                        Cookhouse.Middlewares.CORS
                        Cookhouse.Routes
 
@@ -60,4 +62,30 @@ library
                      , directory
                      , resource-pool
                      , unordered-containers
-                     , recursion-schemes
+                     , free
+                     , vector
+
+test-suite unit-tests
+  type:                exitcode-stdio-1.0
+  main-is:             UnitTests.hs
+  hs-source-dirs:      tests
+  default-language:    Haskell2010
+  ghc-options:         -Wall
+
+  default-extensions:  ConstraintKinds
+                       TypeFamilies
+                       FlexibleContexts
+                       FlexibleInstances
+                       OverloadedStrings
+                       RecordWildCards
+
+  build-depends:       base
+                     , cookhouse
+                     , hspec
+                     , QuickCheck
+                     , mtl
+                     , safe-access
+                     , free
+                     , time
+                     , postgresql-simple
+                     , bytestring

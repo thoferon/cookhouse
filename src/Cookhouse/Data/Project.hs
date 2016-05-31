@@ -1,5 +1,8 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+
 module Cookhouse.Data.Project
-  ( Project(..)
+  ( ProjectIdentifier(..)
+  , Project(..)
   , Source(..)
   , Trigger(..)
   , Step(..)
@@ -12,18 +15,31 @@ import           Control.Monad
 
 import           Data.Aeson
 import           Data.Maybe
+import           Data.String
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text           as T
 
+import           Database.PostgreSQL.Simple.ToField
+
+import           Cookhouse.Data.Types
+
+newtype ProjectIdentifier
+  = ProjectIdentifier { unProjectIdentifier :: String }
+  deriving (Eq, IsString, PureFromField, ToField, ToJSON, FromJSON)
+
+instance Show ProjectIdentifier where
+  show = unProjectIdentifier
+
 data Project = Project
-  { projectIdentifier     :: String    -- ^ A unique string
+  { projectIdentifier     :: ProjectIdentifier -- ^ A unique string
   , projectSource         :: Source    -- ^ Location of the code (e.g. a repo)
-  , projectDependencies   :: [String]  -- ^ Project identifiers of dependencies
+  , projectDependencies   :: [ProjectIdentifier]
+                                       -- ^ Project identifiers of dependencies
   , projectTriggers       :: [Trigger] -- ^ Events on which to trigger a build
   , projectBuildSteps     :: [Step]    -- ^ Steps to build the project
   , projectPostBuildsteps :: [Step]    -- ^ Steps to perform afterwards
                                        -- (e.g. deployment)
-  }
+  } deriving (Eq, Show)
 
 instance FromJSON Project where
   parseJSON = withObject "Project" $ \obj -> Project
@@ -48,7 +64,7 @@ instance ToJSON Project where
 data Source = Source
   { sourcePluginName :: String -- ^ Name of a plugin that can handle this source
   , sourceLocation   :: String -- ^ File path, URL, ...
-  }
+  } deriving (Eq, Show)
 
 instance FromJSON Source where
   parseJSON = withObject "Source" $ \obj ->
@@ -65,7 +81,7 @@ data Trigger = Trigger
   { triggerPluginName :: String -- ^ Name of a plugin that can detect this event
   , triggerConfig     :: PluginConfig
                          -- ^ Extra values for plugin configuration
-  }
+  } deriving (Eq, Show)
 
 instance FromJSON Trigger where
   parseJSON = withObject "Trigger" $ \obj -> do
@@ -80,7 +96,7 @@ instance FromJSON Trigger where
 data Step = Step
   { stepPluginName :: String       -- ^ Name of a plugin that will perform it
   , stepConfig     :: PluginConfig -- ^ Extra values for plugin configuration
-  }
+  } deriving (Eq, Show)
 
 instance FromJSON Step where
   parseJSON = withObject "Step" $ \obj -> do
@@ -97,6 +113,7 @@ data SimpleValue
   = SVBool   Bool
   | SVInt    Int
   | SVString String
+  deriving (Eq, Show)
 
 instance FromJSON SimpleValue where
   parseJSON v = do
