@@ -27,14 +27,14 @@ spec = do
       job       = Job Build JobSuccess "identifier" [] Nothing pastTime
       jobFields = [ integer 42, PureField "job_type" (Just "build")
                   , PureField "job_status" (Just "success")
-                  , varchar "identifier" , emptyArray "integer"
-                  , nullValue "varchar" , timestamp' pastTime ]
+                  , varchar "identifier", emptyArray "int4"
+                  , nullValue "varchar", timestamp' pastTime ]
 
   describe "getJob" $ do
     let fakeSelect "jobs" _ mods
           | wmodTemplate (selModWhere mods) == "id = ?"
             && wmodValues (selModWhere mods) == [toField (42 :: Int)] =
-            return [jobFields]
+              return [jobFields]
         fakeSelect tbl cols mods = failEmulator $
           "Can't handle SELECT: " ++ show (tbl, cols, mods)
 
@@ -53,7 +53,7 @@ spec = do
           | wmodTemplate (selModWhere mods) == "project_identifier = ?"
             && wmodValues (selModWhere mods)
                  == [toField ("identifier" :: ProjectIdentifier)] =
-            return [jobFields]
+              return [jobFields]
         fakeSelect tbl cols mods = failEmulator $
           "Can't handle SELECT: " ++ show (tbl, cols, mods)
 
@@ -73,7 +73,7 @@ spec = do
               == "(status = ?) OR (status = ?)"
             && wmodValues (selModWhere mods)
                  == [toField JobInQueue, toField JobInProgress] =
-            return [jobFields]
+              return [jobFields]
         fakeSelect tbl cols mods = failEmulator $
           "Can't handle SELECT: " ++ show (tbl, cols, mods)
 
@@ -104,3 +104,46 @@ spec = do
       test (singleCapability CACreateJob) emulator
            (createJob PostBuild "identifier" [JobID 42, JobID 1337])
         `shouldBe` Right (JobID 9999)
+
+  describe "deleteJob" $ do
+    it "requires the capability CADeleteJob" $ do
+      test anonymousCapability mempty (deleteJob $ JobID 42)
+        `shouldBe` Left (AccessError CADeleteJob)
+
+    it "deletes the job AFTER its dependencies recursively" $ do
+      let mkJobRows jobID deps =
+            [ integer jobID, PureField "job_type" (Just "build")
+            , PureField "job_status" (Just "in-queue"), varchar "identifier"
+            , array "int4" deps, nullValue "varchar", timestamp' someTime ]
+
+          fakeSelect "jobs" _ mods
+            | wmodValues (selModWhere mods) == [toField (11 :: Int)] =
+                return [mkJobRows 11 "{222}"]
+            | wmodValues (selModWhere mods) == [toField (222 :: Int)] =
+                return [mkJobRows 222 "{3333}"]
+            | wmodValues (selModWhere mods) == [toField (3333 :: Int)] =
+                return [mkJobRows 3333 "{}"]
+          fakeSelect tbl cols mods = failEmulator $
+            "Can't handle SELECT: " ++ show (tbl, cols, mods)
+          selectEmulator = mempty { deSelect = fakeSelect }
+
+          mkFakeDelete jobID next "jobs" mods
+            | wmodTemplate (selModWhere mods) == "id = ?"
+              && wmodValues (selModWhere mods) == [toField jobID] = do
+                changeEmulator $ \_ -> next
+                return 1
+          mkFakeDelete jobID _ tbl mods = failEmulator $
+            "Can't handle DELETE: " ++ show (jobID, tbl, mods)
+
+          mkEmulator jobID next =
+            selectEmulator { deDelete = mkFakeDelete jobID next }
+
+          emulator = mkEmulator (JobID 3333) $ mkEmulator (JobID 222) $
+            mkEmulator (JobID 11) mempty
+
+          cap = MkCapability $ \d -> case d of
+            CADeleteJob -> AccessGranted
+            CAGetJob    -> AccessGranted
+            _           -> AccessDenied
+
+      test cap emulator (deleteJob $ JobID 11) `shouldBe` Right ()

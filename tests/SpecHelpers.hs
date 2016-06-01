@@ -52,6 +52,9 @@ type EmulatorM = StateT DatabaseEmulator (Either String)
 failEmulator :: String -> EmulatorM a
 failEmulator = lift . Left
 
+changeEmulator :: (DatabaseEmulator -> DatabaseEmulator) -> EmulatorM ()
+changeEmulator f = state $ \emulator -> ((), f emulator)
+
 data DatabaseEmulator = DatabaseEmulator
   { deInsert :: forall p. ToRow p => Query -> [Query] -> Query -> [p]
              -> EmulatorM [PureRow]
@@ -97,7 +100,7 @@ testWithTime :: UTCTime -> Capability CookhouseAccess -> DatabaseEmulator
              -> DataM a -> Either TestError a
 testWithTime time cap emulator action =
    let eRes = fmap fst $ flip runStateT emulator $
-          foldFree (databaseInterpreter emulator) $ iterT timeInterpreter $
+          foldFree databaseInterpreter $ iterT timeInterpreter $
             runExceptT $ flip runSafeAccessT [cap] $ action
 
     in case eRes of
@@ -110,12 +113,15 @@ testWithTime time cap emulator action =
     timeInterpreter :: TimeF (m a) -> m a
     timeInterpreter (GetTime f) = f time
 
-    databaseInterpreter :: DatabaseEmulator -> DatabaseF a -> EmulatorM a
-    databaseInterpreter (DatabaseEmulator{..}) d = case d of
-      DBInsert tbl columns ret params f -> f <$> deInsert tbl columns ret params
-      DBSelect tbl columns mods       f -> f <$> deSelect tbl columns mods
-      DBUpdate tbl pairs   mods       f -> f <$> deUpdate tbl pairs   mods
-      DBDelete tbl         mods       f -> f <$> deDelete tbl         mods
+    databaseInterpreter :: DatabaseF a -> EmulatorM a
+    databaseInterpreter d = do
+      (DatabaseEmulator{..}) <- Control.Monad.State.get
+      case d of
+        DBInsert tbl columns ret params f ->
+          f <$> deInsert tbl columns ret params
+        DBSelect tbl columns mods f -> f <$> deSelect tbl columns mods
+        DBUpdate tbl pairs   mods f -> f <$> deUpdate tbl pairs   mods
+        DBDelete tbl         mods f -> f <$> deDelete tbl         mods
 
 test :: Capability CookhouseAccess -> DatabaseEmulator -> DataM a
      -> Either TestError a
@@ -141,7 +147,10 @@ nullValue :: BS.ByteString -> PureField
 nullValue = flip PureField Nothing
 
 emptyArray :: BS.ByteString -> PureField
-emptyArray = flip PureField (Just "{}")  . ("_" <>)
+emptyArray = flip array "{}"
+
+array :: BS.ByteString -> BS.ByteString -> PureField
+array name value = PureField ("_" <> name) (Just value)
 
 isIncludedIn :: Eq a => [a] -> [a] -> Bool
 isIncludedIn xs ys = all (`elem` ys) xs

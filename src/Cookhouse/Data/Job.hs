@@ -5,6 +5,8 @@ import           Data.Time
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Vector as V
 
+import           Web.PathPieces
+
 import           Database.PostgreSQL.Simple
 import           Database.PostgreSQL.Simple.ToField
 import           Database.PostgreSQL.Simple.ToRow
@@ -130,6 +132,10 @@ instance ToField (EntityID Job) where
 instance ToJSON (EntityID Job) where
   toJSON = toJSON . unJobID
 
+instance PathPiece (EntityID Job) where
+  fromPathPiece = fmap JobID . fromPathPiece
+  toPathPiece   = toPathPiece . unJobID
+
 data JobField a where
   JobStatus            :: JobField JobStatus
   JobProjectIdentifier :: JobField ProjectIdentifier
@@ -169,3 +175,10 @@ createJob typ identifier deps = do
     , jobPath              = Nothing
     , jobCreationTime      = now
     }
+
+deleteJob :: MonadDataLayer m => EntityID Job -> m ()
+deleteJob jobID = do
+  ensureAccess CADeleteJob
+  job <- getJob jobID
+  mapM_ deleteJob $ jobDependencies job
+  delete jobID

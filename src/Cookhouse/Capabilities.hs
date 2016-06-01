@@ -17,6 +17,7 @@ data CookhouseAccess
   = CAGetProjects
   | CAGetJob
   | CACreateJob
+  | CADeleteJob
   deriving (Eq, Show)
 
 anonymousCapability :: Capability CookhouseAccess

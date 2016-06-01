@@ -27,3 +27,8 @@ getJobsOfProjectAction =
       withDataLayerResult eJobs $ \jobs -> do
         setStatus ok200
         json $ object [ "jobs" .= jobs ]
+
+deleteJobAction :: AppSpockAction ()
+deleteJobAction = runPOF (paramPOF "job_id") $ \jobID -> do
+  eRes <- inDataLayer $ deleteJob jobID
+  withDataLayerResult eRes $ \_ -> setStatus noContent204
