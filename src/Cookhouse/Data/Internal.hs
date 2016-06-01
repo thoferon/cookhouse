@@ -16,7 +16,6 @@ import           Control.Exception
 import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Free
-import           Control.Monad.Reader
 import           Control.Monad.Trans.Free hiding (Free)
 
 import           Data.List hiding (groupBy, delete)
@@ -201,7 +200,13 @@ ensureFieldType names = do
               ++ BS.unpack (mconcat (intersperse ", " names))
 
 ensureNotNull :: PureFieldParser BS.ByteString
-ensureNotNull = maybe (fail "encountered NULL") return =<< getFieldValue
+ensureNotNull = do
+  mVal <- getFieldValue
+  case mVal of
+    Nothing -> do
+      name <- getTypeName
+      fail $ "encountered NULL in a field of type " ++ show name
+    Just val -> return val
 
 class PureFromField a where
   pureFromField :: PureFieldParser a
@@ -254,6 +259,19 @@ instance PureFromField Bool where
       "t" -> return True
       "f" -> return False
       _   -> fail $ "invalid boolean: " ++ show bs
+
+instance PureFromField UTCTime where
+  pureFromField = do
+    ensureFieldType ["timestamp", "timestamptz"]
+    bs   <- ensureNotNull
+    name <- getTypeName
+    let (fmt, str) = case name of
+          "timestamp"   -> ("%F %T%Q",   BS.unpack bs)
+          "timestamptz" -> ("%F %T%Q%z", BS.unpack bs ++ "00")
+          _             -> error "the impossible happened"
+    case parseTimeM True defaultTimeLocale fmt str of
+      Nothing -> fail $ "invalid timestamp: " ++ show str
+      Just t  -> return t
 
 instance {-# OVERLAPPABLE #-} PureFromField a => PureFromField [a] where
   pureFromField = arrayField

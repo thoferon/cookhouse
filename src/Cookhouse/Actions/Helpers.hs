@@ -16,6 +16,7 @@ module Cookhouse.Actions.Helpers
   , listPOFMaybe
   , pofError
   , bfnToMaybe
+  , withProject
   , module Control.Applicative
   , module Data.Aeson
   , module Network.HTTP.Types.Status
@@ -25,13 +26,15 @@ module Cookhouse.Actions.Helpers
 
 import           Control.Applicative
 import           Control.Monad.Except
-import           Control.Monad.Reader
 
 import           Data.Aeson hiding (json)
+import           Data.List
 import           Data.Monoid
 import           Data.Time
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
+
+import           System.IO
 
 import           Database.PostgreSQL.Simple
 
@@ -42,13 +45,14 @@ import           Web.Spock.Simple hiding (head)
 
 import           Cookhouse.Actions.Types
 import           Cookhouse.Capabilities
+import           Cookhouse.Data.Project
+import           Cookhouse.Data.Types
 import           Cookhouse.Environment
 import           Cookhouse.Errors
 import           Cookhouse.Plugins.Types
 
-type DataM a
-  = SafeAccessT CookhouseAccess (ExceptT CookhouseError
-                                 (ReaderT Connection IO)) a
+type DataM
+  = SafeAccessT CookhouseAccess (ExceptT CookhouseError (TimeT DatabaseM))
 
 inDataLayer :: DataM a -> AppSpockAction (Either CookhouseError a)
 inDataLayer action = do
@@ -67,14 +71,17 @@ inDataLayer action = do
             level <- authPluginGetAccessLevel plugin token
             return [toCookhouseCapability level]
 
+  now <- liftIO getCurrentTime
   case eCapabilities of
     Left  err          -> return $ Left err
     Right capabilities -> runQuery $ \conn -> do
-      eRes <- runReaderT (runExceptT $ runSafeAccessT action capabilities) conn
+      eRes <- runDatabaseM conn $ runTimeT now $
+        runExceptT $ runSafeAccessT action capabilities
       return $ case eRes of
-        Left err            -> Left err
-        Right (Left  descr) -> Left $ PermissionError descr
-        Right (Right res)   -> Right res
+        Left  err                   -> Left err
+        Right (Left  err)           -> Left err
+        Right (Right (Left  descr)) -> Left $ PermissionError descr
+        Right (Right (Right res))   -> Right res
 
 getToken :: AppSpockAction (Maybe Token)
 getToken = fmap (Token . TE.encodeUtf8) <$> header "X-API-Token"
@@ -88,8 +95,9 @@ newtype ApiError = ApiError String
 instance ToJSON ApiError where
   toJSON (ApiError msg) = object [ "error" .= msg ]
 
-failAction :: HttpError e => e -> AppSpockAction ()
+failAction :: HTTPError e => e -> AppSpockAction ()
 failAction err = do
+  liftIO $ hPutStrLn stderr $ "Error: " ++ show err
   let (status, msg) = errStatusAndMsg err
   setStatus status
   json $ ApiError msg
@@ -162,3 +170,12 @@ instance PathPiece UTCTime where
   fromPathPiece =
     parseTimeM True defaultTimeLocale "%Y-%m-%dT%H:%M:%S%QZ" . T.unpack
   toPathPiece   = T.pack . formatTime defaultTimeLocale "%Y-%m-%dT%H:%M:%S%QZ"
+
+withProject :: ProjectIdentifier -> (Project -> AppSpockAction ())
+            -> AppSpockAction ()
+withProject identifier cont = do
+  projects <- getProjects
+  case find ((== identifier) . projectIdentifier) projects of
+    Nothing -> failAction $
+      IncorrectProjectIdentifierError $ unProjectIdentifier identifier
+    Just project -> cont project

@@ -26,9 +26,9 @@ import           Network.URI hiding (path)
 import           Cookhouse.Data.Project
 
 data Config = Config
-  { configDatabaseUser     :: String
+  { configDatabaseUsername :: String
   , configDatabasePassword :: String
-  , configDatabaseHost     :: String
+  , configDatabaseHostname :: String
   , configDatabasePort     :: Integer
   , configDatabaseName     :: String
   , configPort             :: Int
@@ -41,9 +41,9 @@ instance FromJSON Config where
   parseJSON = withObject "Config" $ \obj -> do
     db <- obj .: "database"
     Config
-      <$> db  .: "user"
+      <$> db  .: "username"
       <*> db  .: "password"
-      <*> db  .: "host"
+      <*> db  .: "hostname"
       <*> db  .: "port"
       <*> db  .: "name"
       <*> obj .: "port"
@@ -62,8 +62,8 @@ readConfigOrDie path = do
 
 createConn :: Config -> IO Connection
 createConn config = connect ConnectInfo
-  { connectHost     = configDatabaseHost     config
-  , connectUser     = configDatabaseUser     config
+  { connectHost     = configDatabaseHostname config
+  , connectUser     = configDatabaseUsername config
   , connectPassword = configDatabasePassword config
   , connectDatabase = configDatabaseName     config
   , connectPort     = fromInteger $ configDatabasePort config

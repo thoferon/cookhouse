@@ -1,9 +1,9 @@
 ---
 port: 3001
 database:
-  user: _postgresql
+  username: _postgresql
   password: ""
-  host: 127.0.0.1
+  hostname: 127.0.0.1
   port: 5432
   name: cookhouse
 cors-origins: []

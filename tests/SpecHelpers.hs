@@ -22,13 +22,13 @@ import           Debug.Trace
 import           Control.Applicative
 import           Control.Monad.Except
 import           Control.Monad.Free
-import           Control.Monad.Reader
 import           Control.Monad.State
 import           Control.Monad.Trans.Free
 import           Control.SafeAccess
 
 import           Data.Either
 import           Data.Maybe
+import           Data.Monoid
 import           Data.Time
 import qualified Data.ByteString.Char8 as BS
 
@@ -131,11 +131,17 @@ timestamp :: BS.ByteString -> PureField
 timestamp = PureField "timestamp" . Just
 
 timestamp' :: UTCTime -> PureField
-timestamp' = timestamp . BS.pack . formatTime defaultTimeLocale "%F %T.000000Z"
+timestamp' = timestamp . BS.pack . formatTime defaultTimeLocale "%F %T%Q"
 
 boolean :: Bool -> PureField
 boolean True  = PureField "boolean" $ Just "t"
 boolean False = PureField "boolean" $ Just "f"
+
+nullValue :: BS.ByteString -> PureField
+nullValue = flip PureField Nothing
+
+emptyArray :: BS.ByteString -> PureField
+emptyArray = flip PureField (Just "{}")  . ("_" <>)
 
 isIncludedIn :: Eq a => [a] -> [a] -> Bool
 isIncludedIn xs ys = all (`elem` ys) xs

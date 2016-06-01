@@ -1,8 +1,7 @@
 module Cookhouse.Data.Job where
 
 import           Data.Aeson
-import           Data.List
-import           Data.Maybe
+import           Data.Time
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Vector as V
 
@@ -87,11 +86,22 @@ data Job = Job
   , jobProjectIdentifier :: ProjectIdentifier
   , jobDependencies      :: [EntityID Job]
   , jobPath              :: Maybe FilePath
+  , jobCreationTime      :: UTCTime
   } deriving (Eq, Show)
 
+instance ToJSON Job where
+  toJSON (Job{..}) = object
+    [ "type"               .= jobType
+    , "status"             .= jobStatus
+    , "project_identifier" .= jobProjectIdentifier
+    , "dependencies"       .= jobDependencies
+    , "path"               .= jobPath
+    , "creation_time"      .= jobCreationTime
+    ]
+
 instance PureFromRow Job where
-  pureFromRow =
-    Job <$> field <*> field <*> field <*> (fmap V.toList field) <*> field
+  pureFromRow = Job
+    <$> field <*> field <*> field <*> (fmap V.toList field) <*> field <*> field
 
 instance ToRow Job where
   toRow (Job{..}) =
@@ -100,6 +110,7 @@ instance ToRow Job where
     , toField jobProjectIdentifier
     , toField $ V.fromList jobDependencies
     , toField jobPath
+    , toField jobCreationTime
     ]
 
 instance Storable Job where
@@ -107,7 +118,7 @@ instance Storable Job where
 
   tableName  _ = "jobs"
   fieldNames _ = [ "type", "status", "project_identifier", "dependencies"
-                 , "path"
+                 , "path", "creation_time"
                  ]
 
 instance PureFromField (EntityID Job) where
@@ -116,14 +127,45 @@ instance PureFromField (EntityID Job) where
 instance ToField (EntityID Job) where
   toField = toField . unJobID
 
+instance ToJSON (EntityID Job) where
+  toJSON = toJSON . unJobID
+
+data JobField a where
+  JobStatus            :: JobField JobStatus
+  JobProjectIdentifier :: JobField ProjectIdentifier
+
+instance IsField Job JobField where
+  toFieldName f = case f of
+    JobStatus            -> "status"
+    JobProjectIdentifier -> "project_identifier"
+
+getJob :: MonadDataLayer m => EntityID Job -> m Job
+getJob jobID = do
+  ensureAccess CAGetJob
+  get jobID
+
+getJobsOfProject :: MonadDataLayer m => ProjectIdentifier -> m [Entity Job]
+getJobsOfProject identifier = findJobs $ JobProjectIdentifier :== identifier
+
+getPendingJobs :: MonadDataLayer m => m [Entity Job]
+getPendingJobs =
+  findJobs $ JobStatus :== JobInQueue :|| JobStatus :== JobInProgress
+
+findJobs :: MonadDataLayer m => GenericModifier JobField -> m [Entity Job]
+findJobs mods = do
+  ensureAccess CAGetJob
+  select mods
+
 createJob :: MonadDataLayer m => JobType -> ProjectIdentifier -> [EntityID Job]
           -> m (EntityID Job)
 createJob typ identifier deps = do
   ensureAccess CACreateJob
+  now <- getTime
   create Job
     { jobType              = typ
     , jobStatus            = JobInQueue
     , jobProjectIdentifier = identifier
     , jobDependencies      = deps
     , jobPath              = Nothing
+    , jobCreationTime      = now
     }

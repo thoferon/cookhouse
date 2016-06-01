@@ -77,8 +77,8 @@ mergeOrders = foldl' (zipWithLargest (\xs ys -> nub $ xs ++ ys)) []
   where
     -- Like zipWith but it doesn't stop at the shortest list
     zipWithLargest :: (a -> a -> a) -> [a] -> [a] -> [a]
-    zipWithLargest f xs [] = xs
-    zipWithLargest f [] ys = ys
+    zipWithLargest _ xs [] = xs
+    zipWithLargest _ [] ys = ys
     zipWithLargest f (x:xs) (y:ys) = f x y : zipWithLargest f xs ys
 
 findProject :: [Project] -> ProjectIdentifier -> Either CookhouseError Project

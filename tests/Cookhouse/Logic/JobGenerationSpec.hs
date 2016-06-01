@@ -15,26 +15,27 @@ projects =
 
 fakeInsert :: ToRow p => Query -> [Query] -> Query -> [p] -> EmulatorM [PureRow]
 fakeInsert "jobs" _ "id" vals
-  | [toRow (Job Build JobInQueue "commons" [] Nothing)]
+  | [toRow (Job Build JobInQueue "commons" [] Nothing someTime)]
     == map toRow vals = return [[integer 42]]
-  | [toRow (Job PostBuild JobInQueue "commons" [JobID 42] Nothing)]
+  | [toRow (Job PostBuild JobInQueue "commons" [JobID 42] Nothing someTime)]
     == map toRow vals = return [[integer 142]] -- for the single test
-  | [toRow (Job Build JobInQueue "libA" [JobID 42] Nothing)]
+  | [toRow (Job Build JobInQueue "libA" [JobID 42] Nothing someTime)]
     == map toRow vals = return [[integer 76]]
-  | [toRow (Job Build JobInQueue "libB" [JobID 42] Nothing)]
+  | [toRow (Job Build JobInQueue "libB" [JobID 42] Nothing someTime)]
     == map toRow vals = return [[integer 89]]
-  | [toRow (Job Build JobInQueue "website" [JobID 76, JobID 89] Nothing)]
+  | [toRow (Job Build JobInQueue "website" [JobID 76, JobID 89] Nothing someTime)]
     == map toRow vals = return [[integer 137]]
-  | [toRow (Job PostBuild JobInQueue "commons" [JobID 137] Nothing)]
+  | [toRow (Job PostBuild JobInQueue "commons" [JobID 137] Nothing someTime)]
     == map toRow vals = return [[integer 242]]
-  | [toRow (Job PostBuild JobInQueue "libA" [JobID 242] Nothing)]
+  | [toRow (Job PostBuild JobInQueue "libA" [JobID 242] Nothing someTime)]
     == map toRow vals = return [[integer 476]]
-  | [toRow (Job PostBuild JobInQueue "libB" [JobID 242] Nothing)]
+  | [toRow (Job PostBuild JobInQueue "libB" [JobID 242] Nothing someTime)]
     == map toRow vals = return [[integer 589]]
-  | [toRow (Job PostBuild JobInQueue "website" [JobID 476, JobID 589] Nothing)]
+  | [toRow (Job PostBuild JobInQueue "website" [JobID 476, JobID 589] Nothing
+                someTime)]
     == map toRow vals = return [[integer 1337]]
-  | otherwise = failEmulator $
-      "Can't handle INSERT query on jobs: " ++ show (map toRow vals)
+fakeInsert tbl cols ret vals = failEmulator $
+  "Can't handle INSERT query: " ++ show (tbl, cols, ret, map toRow vals)
 
 spec :: Spec
 spec = do

@@ -35,4 +35,4 @@ signoutAction = do
     (Just token, Just plugin) -> do
       void $ liftIO $ runExceptT $ authPluginSignout plugin token
       setStatus noContent204
-    _ -> setStatus noContent204
+    _ -> setStatus badRequest400

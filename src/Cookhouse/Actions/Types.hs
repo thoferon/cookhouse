@@ -18,9 +18,12 @@ type AppSpockAction a = SpockAction Connection () Environment a
 getEnvironment :: AppSpockAction Environment
 getEnvironment = getState
 
+getAuthenticationPlugins :: AppSpockAction [AuthenticationPlugin]
+getAuthenticationPlugins = envAuthenticationPlugins <$> getEnvironment
+
 getAuthenticationPlugin :: String -> AppSpockAction (Maybe AuthenticationPlugin)
 getAuthenticationPlugin name = do
-  plugins <- envAuthenticationPlugins <$> getEnvironment
+  plugins <- getAuthenticationPlugins
   return $ find ((==name) . authPluginName) plugins
 
 getConfig :: AppSpockAction Config

@@ -15,6 +15,7 @@ import Cookhouse.Plugins.Types
 
 data CookhouseAccess
   = CAGetProjects
+  | CAGetJob
   | CACreateJob
   deriving (Eq, Show)
 
@@ -31,5 +32,6 @@ toCookhouseCapability :: AccessLevel -> Capability CookhouseAccess
 toCookhouseCapability level = MkCapability $ \d -> case (level, d) of
   (Admin, _)          -> AccessGranted
   (User, CACreateJob) -> AccessGranted
+  (_, CAGetJob)       -> AccessGranted
   (_, CAGetProjects)  -> AccessGranted
   _ -> AccessDeniedSoft

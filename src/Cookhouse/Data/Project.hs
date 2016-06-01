@@ -19,13 +19,15 @@ import           Data.String
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text           as T
 
+import           Web.PathPieces
+
 import           Database.PostgreSQL.Simple.ToField
 
 import           Cookhouse.Data.Types
 
 newtype ProjectIdentifier
   = ProjectIdentifier { unProjectIdentifier :: String }
-  deriving (Eq, IsString, PureFromField, ToField, ToJSON, FromJSON)
+  deriving (Eq, IsString, PureFromField, ToField, ToJSON, FromJSON, PathPiece)
 
 instance Show ProjectIdentifier where
   show = unProjectIdentifier
