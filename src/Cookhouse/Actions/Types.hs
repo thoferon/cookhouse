@@ -26,6 +26,12 @@ getAuthenticationPlugin name = do
   plugins <- getAuthenticationPlugins
   return $ find ((==name) . authPluginName) plugins
 
+getTriggerPlugins :: AppSpockAction [TriggerPlugin]
+getTriggerPlugins = envTriggerPlugins <$> getEnvironment
+
+getSourcePlugins :: AppSpockAction [SourcePlugin]
+getSourcePlugins = envSourcePlugins <$> getEnvironment
+
 getConfig :: AppSpockAction Config
 getConfig = envConfig <$> getEnvironment
 

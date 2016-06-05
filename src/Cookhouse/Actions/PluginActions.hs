@@ -13,6 +13,13 @@ instance ToJSON AuthPluginDescription where
 
 getPluginsAction :: AppSpockAction ()
 getPluginsAction = do
-  authPluginDescrs <- map AuthPluginDescription <$> getAuthenticationPlugins
+  authPluginDescrs   <- map AuthPluginDescription <$> getAuthenticationPlugins
+  triggerPluginNames <- map triggerPluginName     <$> getTriggerPlugins
+  sourcePluginNames  <- map sourcePluginName      <$> getSourcePlugins
+
   setStatus ok200
-  json $ object [ "authentication_plugins" .= authPluginDescrs ]
+  json $ object
+    [ "authentication_plugins" .= authPluginDescrs
+    , "trigger_plugins"        .= triggerPluginNames
+    , "source_plugins"         .= sourcePluginNames
+    ]

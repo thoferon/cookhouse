@@ -1,5 +1,6 @@
 module Cookhouse
-  ( defaultMain
+  ( readConfigFromArgs
+  , webServer
   ) where
 
 import Data.Maybe
@@ -15,13 +16,19 @@ import Cookhouse.Config
 import Cookhouse.Environment
 import Cookhouse.Plugins.Types
 
-defaultMain :: [AuthenticationPlugin] -> IO ()
-defaultMain authPlugins = do
-  args   <- getArgs
-  config <- readConfigOrDie $ maybe "config.yml" id $ listToMaybe args
+readConfigFromArgs :: IO Config
+readConfigFromArgs = do
+  args <- getArgs
+  readConfigOrDie $ maybe "config.yml" id $ listToMaybe args
 
+webServer :: Config -> [AuthenticationPlugin] -> [TriggerPlugin]
+          -> [SourcePlugin] -> IO ()
+webServer config authPlugins triggerPlugins sourcePlugins = do
   pool <- createPool (createConn config) destroyConn 3 (24*60*60) 1
   let env = (defaultEnvironment config)
-        { envAuthenticationPlugins = authPlugins }
+        { envAuthenticationPlugins = authPlugins
+        , envTriggerPlugins        = triggerPlugins
+        , envSourcePlugins         = sourcePlugins
+        }
       cfg = defaultSpockCfg () (PCPool pool) env
   runSpock (configPort config) $ spock cfg (app config)

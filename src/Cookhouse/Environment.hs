@@ -8,11 +8,15 @@ import Cookhouse.Plugins.Types
 
 data Environment = Environment
   { envAuthenticationPlugins :: [AuthenticationPlugin]
+  , envTriggerPlugins        :: [TriggerPlugin]
+  , envSourcePlugins         :: [SourcePlugin]
   , envConfig                :: Config
   }
 
 defaultEnvironment :: Config -> Environment
 defaultEnvironment config = Environment
   { envAuthenticationPlugins = []
+  , envTriggerPlugins        = []
+  , envSourcePlugins         = []
   , envConfig                = config
   }
