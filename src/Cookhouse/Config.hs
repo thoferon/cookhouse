@@ -55,7 +55,11 @@ readConfigOrDie :: FilePath -> IO Config
 readConfigOrDie path = do
   configJson <- BS.readFile path
   case decodeEither configJson of
-    Right config -> return config
+    Right config -> case checkProjects (configProjects config) of
+      Nothing  -> return config
+      Just err -> do
+        hPutStrLn stderr $ "Projects are not sound: " ++ err
+        exitFailure
     Left err -> do
       hPutStrLn stderr $ "Can't read the config file: " ++ err
       exitFailure

@@ -1,7 +1,6 @@
 resolver: lts-6.1
 packages:
 - .
-- plugin/
 extra-deps:
 - safe-access-0.2.1.2
 flags: {}

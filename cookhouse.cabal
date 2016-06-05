@@ -50,29 +50,33 @@ library
                        Cookhouse.Errors
                        Cookhouse.Logic.JobGeneration
                        Cookhouse.Middlewares.CORS
+                       Cookhouse.Plugins.Source.Darcs
+                       Cookhouse.Plugins.Trigger.SourceChange
+                       Cookhouse.Plugins.Types
                        Cookhouse.Routes
 
   build-depends:       base >=4.8 && <4.9
-                     , cookhouse-plugin
                      , Spock
-                     , postgresql-simple
-                     , wai
-                     , http-types
-                     , network-uri
-                     , bytestring
-                     , text
                      , aeson
-                     , yaml
-                     , mtl
-                     , safe-access
-                     , time
-                     , path-pieces
-                     , template-haskell
+                     , bytestring
                      , directory
-                     , resource-pool
-                     , unordered-containers
+                     , filepath
                      , free
+                     , http-types
+                     , mtl
+                     , network-uri
+                     , path-pieces
+                     , postgresql-simple
+                     , process
+                     , resource-pool
+                     , safe-access
+                     , template-haskell
+                     , text
+                     , time
+                     , unordered-containers
                      , vector
+                     , wai
+                     , yaml
 
 test-suite unit-tests
   type:                exitcode-stdio-1.0

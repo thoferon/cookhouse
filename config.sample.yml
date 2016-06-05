@@ -14,5 +14,9 @@ projects:
       plugin: darcs
       location: http://darcs.redspline.com/cookhouse
     triggers:
-      - plugin: darcs
-    build-steps: []
+      - plugin: source-change
+        waiting-time: 5
+    build-steps:
+      - plugin: haskell
+        test: true
+        ghc-options: -Werror

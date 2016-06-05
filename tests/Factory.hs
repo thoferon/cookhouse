@@ -6,7 +6,7 @@ import Cookhouse.Data.Project
 commonsProject :: Project
 commonsProject = Project
   { projectIdentifier     = "commons"
-  , projectSource         = Source "darcs" "fake@server.com:/repos/commons"
+  , projectSource         = Source "darcs" "fake@server.com:/repos/commons" []
   , projectDependencies   = []
   , projectTriggers       = []
   , projectBuildSteps     = []
@@ -16,7 +16,7 @@ commonsProject = Project
 libAProject :: Project
 libAProject = Project
   { projectIdentifier     = "libA"
-  , projectSource         = Source "darcs" "fake@server.com:/repos/liba"
+  , projectSource         = Source "darcs" "fake@server.com:/repos/liba" []
   , projectDependencies   = ["commons"]
   , projectTriggers       = []
   , projectBuildSteps     = []
@@ -26,7 +26,7 @@ libAProject = Project
 libBProject :: Project
 libBProject = Project
   { projectIdentifier     = "libB"
-  , projectSource         = Source "darcs" "fake@server.com:/repos/libb"
+  , projectSource         = Source "darcs" "fake@server.com:/repos/libb" []
   , projectDependencies   = ["commons"]
   , projectTriggers       = []
   , projectBuildSteps     = []
@@ -36,7 +36,7 @@ libBProject = Project
 websiteProject :: Project
 websiteProject = Project
   { projectIdentifier     = "website"
-  , projectSource         = Source "darcs" "fake@server.com:/repos/website"
+  , projectSource         = Source "darcs" "fake@server.com:/repos/website" []
   , projectDependencies   = ["libA", "libB", "commons"]
   , projectTriggers       = []
   , projectBuildSteps     = []
@@ -46,7 +46,7 @@ websiteProject = Project
 independentProject :: Project
 independentProject = Project
   { projectIdentifier     = "independent"
-  , projectSource         = Source "darcs" "fake@server.com:/repos/independent"
+  , projectSource         = Source "darcs" "fake@server.com:/repos/indep" []
   , projectDependencies   = []
   , projectTriggers       = []
   , projectBuildSteps     = []

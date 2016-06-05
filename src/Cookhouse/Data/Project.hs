@@ -8,14 +8,16 @@ module Cookhouse.Data.Project
   , Step(..)
   , PluginConfig
   , SimpleValue(..)
+  , checkProjects
   ) where
 
-import           Control.Applicative
 import           Control.Monad
 
 import           Data.Aeson
+import           Data.List
 import           Data.Maybe
 import           Data.String
+import           Data.Time
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text           as T
 
@@ -24,6 +26,7 @@ import           Web.PathPieces
 import           Database.PostgreSQL.Simple.ToField
 
 import           Cookhouse.Data.Types
+import           Cookhouse.Plugins.Types hiding (triggerPluginName)
 
 newtype ProjectIdentifier
   = ProjectIdentifier { unProjectIdentifier :: String }
@@ -64,13 +67,20 @@ instance ToJSON Project where
 
 -- | Source where to fetch the code from
 data Source = Source
-  { sourcePluginName :: String -- ^ Name of a plugin that can handle this source
-  , sourceLocation   :: String -- ^ File path, URL, ...
+  { sourcePluginName :: String       -- ^ Name of a plugin to handle the source
+  , sourceLocation   :: String       -- ^ File path, URL, ...
+  , sourceConfig     :: PluginConfig -- ^ Extra values for plugin configuration
   } deriving (Eq, Show)
 
 instance FromJSON Source where
-  parseJSON = withObject "Source" $ \obj ->
-    Source <$> obj .: "plugin" <*> obj .: "location"
+  parseJSON = withObject "Source" $ \obj -> do
+    config <- fmap catMaybes . forM (M.toList obj) $ \(k,v) ->
+      if k `elem` ["plugin", "location"]
+        then return Nothing
+        else do
+          v' <- parseJSON v
+          return $ Just (T.unpack k, v')
+    Source <$> obj .: "plugin" <*> obj .: "location" <*> pure config
 
 instance ToJSON Source where
   toJSON (Source{..}) = object
@@ -80,19 +90,22 @@ instance ToJSON Source where
 
 -- | Event that should trigger a build
 data Trigger = Trigger
-  { triggerPluginName :: String -- ^ Name of a plugin that can detect this event
-  , triggerConfig     :: PluginConfig
-                         -- ^ Extra values for plugin configuration
+  { triggerPluginName :: String
+    -- ^ Name of a plugin to check this event
+  , triggerWaitingTime :: NominalDiffTime -- ^ Period of time between checks
+  , triggerConfig      :: PluginConfig
+    -- ^ Extra values for plugin configuration
   } deriving (Eq, Show)
 
 instance FromJSON Trigger where
   parseJSON = withObject "Trigger" $ \obj -> do
-    config <- fmap catMaybes . forM (M.toList obj) $ \(k,v) -> case k of
-      "plugin" -> return Nothing
-      _ -> do
-        v' <- parseJSON v
-        return $ Just (T.unpack k, v')
-    Trigger <$> obj .: "plugin" <*> pure config
+    config <- fmap catMaybes . forM (M.toList obj) $ \(k,v) ->
+      if k `elem` ["plugin", "waiting-time"]
+        then return Nothing
+        else do
+          v' <- parseJSON v
+          return $ Just (T.unpack k, v')
+    Trigger <$> obj .: "plugin" <*> obj .: "waiting-time" <*> pure config
 
 -- | Action to perform in order to build or deploy the project
 data Step = Step
@@ -109,16 +122,47 @@ instance FromJSON Step where
         return $ Just (T.unpack k, v')
     Step <$> obj .: "plugin" <*> pure config
 
-type PluginConfig = [(String, SimpleValue)]
+-- | Check whether the project are sound, i.e. dependencies exist and are not
+ -- circular.
+checkProjects :: [Project] -> Maybe String
+checkProjects projects = either Just (const Nothing) $ do
+    checkUniqueness  projects
+    checkExistence   projects
+    checkNonCircular [] projects
 
-data SimpleValue
-  = SVBool   Bool
-  | SVInt    Int
-  | SVString String
-  deriving (Eq, Show)
+  where
+    checkUniqueness :: [Project] -> Either String ()
+    checkUniqueness [] = return ()
+    checkUniqueness (p:ps)
+      | all ((/= projectIdentifier p) . projectIdentifier) ps =
+          checkUniqueness ps
+      | otherwise =
+          Left $ "Duplicate project identifier: " ++ show (projectIdentifier p)
 
-instance FromJSON SimpleValue where
-  parseJSON v = do
-    (SVBool <$> parseJSON v)
-    <|> (SVInt <$> parseJSON v)
-    <|> (SVString <$> parseJSON v)
+    checkExistence :: [Project] -> Either String ()
+    checkExistence [] = return ()
+    checkExistence (p:ps) =
+      case projectDependencies p
+             `areDependenciesIn` map projectIdentifier projects of
+        Nothing -> checkExistence ps
+        Just missing -> Left $ "Missing dependency " ++ show missing ++ " for "
+                               ++ show (projectIdentifier p)
+
+    checkNonCircular :: [Project] -> [Project] -> Either String ()
+    checkNonCircular _ [] = return ()
+    checkNonCircular acc allProjects@(p:ps) = case map projectIdentifier ps of
+      identifiers
+        | length acc == length allProjects -> Left $
+            "Circular dependency in the following projects: "
+            ++ intercalate ", " (map (show . projectIdentifier) allProjects)
+        | all (`elem` identifiers) (projectDependencies p)
+          && all (all (/= projectIdentifier p) . projectDependencies) ps->
+            checkNonCircular [] ps
+        | otherwise -> checkNonCircular (p : acc) (ps ++ [p])
+
+    areDependenciesIn :: [ProjectIdentifier] -> [ProjectIdentifier]
+                      -> Maybe ProjectIdentifier
+    areDependenciesIn [] _ = Nothing
+    areDependenciesIn (pid:pids) identifiers
+      | pid `elem` identifiers = areDependenciesIn pids identifiers
+      | otherwise = Just pid
