@@ -38,48 +38,29 @@ createJobsBasedOnOrder (allIDs, lastIDs) typ (projects : dependentProjects) = do
     createJob typ (projectIdentifier project) lastIDs
   createJobsBasedOnOrder (allIDs ++ newIDs, newIDs) typ dependentProjects
 
--- | Group the projects in group in which they can be built in parallel and
+-- | Group the projects in groups in which they can be built in parallel and
 -- between which it should be sequential
---
--- Here's a quick explanation. Take the following dependency tree:
---      A
---    / | \
---   B  C  D
---   |  |
---   E  G
---  / \
---  F  G
---
--- We want to be able to "see" it as:
---      A
---    / | \
---   B  |  |
---   |  |  |
---   E  C  |
---  / \ |  |
---  F G G  D
---
--- What this function does is to return a list like the following:
--- [[F,G,D], [E,C], [B], [A]]
---
--- Note that removing duplicate in the same group is enough as a project is
--- guaranteed to always appear at the same "level" in the modified graph.
 computeBuildOrder :: [Project] -> ProjectIdentifier
                   -> Either CookhouseError [[Project]]
-computeBuildOrder projects identifier = do
-  project <- findProject projects identifier
-  orders  <- mapM (computeBuildOrder projects) (projectDependencies project)
-  let merged = mergeOrders orders
-  return $ merged ++ [[project]]
-
-mergeOrders :: [[[Project]]] -> [[Project]]
-mergeOrders = foldl' (zipWithLargest (\xs ys -> nub $ xs ++ ys)) []
+computeBuildOrder allProjects identifier = do
+    project <- findProject allProjects identifier
+    go [project]
   where
-    -- Like zipWith but it doesn't stop at the shortest list
-    zipWithLargest :: (a -> a -> a) -> [a] -> [a] -> [a]
-    zipWithLargest _ xs [] = xs
-    zipWithLargest _ [] ys = ys
-    zipWithLargest f (x:xs) (y:ys) = f x y : zipWithLargest f xs ys
+    go :: [Project] -> Either CookhouseError [[Project]]
+    go [] = return []
+    go projects = do
+      let directRevDeps = nub $ concatMap (reverseDependencies allProjects
+                                           . projectIdentifier) projects
+      subGroups <- go directRevDeps
+      let allRevDeps      = concat subGroups
+          clearedProjects = projects \\ allRevDeps
+      return $ clearedProjects : subGroups
+
+-- | Return the list of projects which directly depend on the project with the
+-- given identifier
+reverseDependencies :: [Project] -> ProjectIdentifier -> [Project]
+reverseDependencies projects identifier =
+  filter ((identifier `elem`) . projectDependencies) projects
 
 findProject :: [Project] -> ProjectIdentifier -> Either CookhouseError Project
 findProject projects identifier =

@@ -100,3 +100,9 @@ data TriggerPlugin = TriggerPlugin
 {-
  - Step plugins
  -}
+
+data StepPlugin = StepPlugin
+  { stepPluginName   :: String
+  , stepPluginAction :: FilePath     -- ^ Directory of the build
+                     -> PluginM Bool -- ^ Whether the step has succeeded
+  }
