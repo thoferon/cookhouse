@@ -19,7 +19,12 @@ import qualified Data.Text             as T
 
 import           Database.PostgreSQL.Simple.Types
 
+import           Cookhouse.Capabilities
 import           Cookhouse.Data.Internal
+import           Cookhouse.Errors
+
+type DataM
+  = SafeAccessT CookhouseAccess (ExceptT CookhouseError (TimeT DatabaseM))
 
 instance (Storable a, ToJSON a, ToJSON (EntityID a)) => ToJSON (Entity a) where
   toJSON = runIdentity . entityToJSONWith (Identity . toJSON)

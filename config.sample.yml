@@ -7,7 +7,7 @@ database:
   port: 5432
   name: cookhouse
 cors-origins: []
-build-directory: /var/cookhouse
+build-directory: /tmp
 projects:
   - identifier: cookhouse
     source:
@@ -15,7 +15,7 @@ projects:
       location: http://darcs.redspline.com/cookhouse
     triggers:
       - plugin: source-change
-        waiting-time: 5
+        time-spec: "*/10 *"
     build-steps:
       - plugin: haskell
         test: true

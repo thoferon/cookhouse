@@ -22,6 +22,7 @@ module Cookhouse.Actions.Helpers
   , module Network.HTTP.Types.Status
   , module Web.Spock.Simple
   , module Cookhouse.Actions.Types
+  , module Cookhouse.Environment
   ) where
 
 import           Control.Applicative
@@ -51,9 +52,6 @@ import           Cookhouse.Environment
 import           Cookhouse.Errors
 import           Cookhouse.Plugins.Types
 
-type DataM
-  = SafeAccessT CookhouseAccess (ExceptT CookhouseError (TimeT DatabaseM))
-
 inDataLayer :: DataM a -> AppSpockAction (Either CookhouseError a)
 inDataLayer action = do
   mToken      <- getToken
@@ -63,7 +61,7 @@ inDataLayer action = do
     (Nothing, _) -> return $ Right [anonymousCapability]
     (_, Nothing) -> return $ Right [anonymousCapability]
     (Just token, Just name) -> do
-      mPlugin <- getAuthenticationPlugin name
+      mPlugin <- findAuthenticationPlugin name
       case mPlugin of
         Nothing -> return $ Right [anonymousCapability]
         Just plugin -> liftIO $ runExceptT $

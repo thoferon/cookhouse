@@ -54,6 +54,8 @@ library
                        Cookhouse.Plugins.Trigger.SourceChange
                        Cookhouse.Plugins.Types
                        Cookhouse.Routes
+                       Cookhouse.Workers.Helpers
+                       Cookhouse.Workers.TriggerWorker
 
   build-depends:       base >=4.8 && <4.9
                      , Spock
@@ -77,6 +79,8 @@ library
                      , vector
                      , wai
                      , yaml
+                     , exceptions
+                     , split
 
 test-suite unit-tests
   type:                exitcode-stdio-1.0

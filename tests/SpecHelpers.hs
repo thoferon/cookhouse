@@ -44,9 +44,6 @@ import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 
-type DataM
-  = SafeAccessT CookhouseAccess (ExceptT CookhouseError (TimeT DatabaseM))
-
 type EmulatorM = StateT DatabaseEmulator (Either String)
 
 failEmulator :: String -> EmulatorM a

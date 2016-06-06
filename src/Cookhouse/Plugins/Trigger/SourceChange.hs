@@ -21,5 +21,5 @@ checkRepository fetchSource checkSource projectDir _ = do
   let repoDir = projectDir </> "trigger-test-repo"
   checkExistence <- liftIO $ doesDirectoryExist repoDir
   if checkExistence
-    then fetchSource repoDir >> return True
-    else checkSource repoDir
+    then checkSource repoDir
+    else fetchSource repoDir >> return True

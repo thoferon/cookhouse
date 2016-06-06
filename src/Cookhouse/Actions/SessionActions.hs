@@ -14,11 +14,11 @@ signinAction = do
         <*> paramPOF "password"
 
   runPOF pof $ \(name, username, password) -> do
-    mPlugin <- getAuthenticationPlugin name
+    mPlugin <- findAuthenticationPlugin name
     case mPlugin of
       Nothing -> failAction $ isInvalidError "plugin"
       Just plugin -> do
-        eRes <- liftIO $ runExceptT $ authPluginSignin plugin username password
+        eRes <- runPlugin $ authPluginSignin plugin username password
         case eRes of
           Left err -> failAction $ AuthenticationPluginError name err
           Right token -> do
@@ -29,10 +29,10 @@ signoutAction :: AppSpockAction ()
 signoutAction = do
   mToken  <- getToken
   mName   <- getAuthenticationPluginName
-  mPlugin <- maybe (return Nothing) getAuthenticationPlugin mName
+  mPlugin <- maybe (return Nothing) findAuthenticationPlugin mName
 
   case (mToken, mPlugin) of
     (Just token, Just plugin) -> do
-      void $ liftIO $ runExceptT $ authPluginSignout plugin token
+      void $ runPlugin $ authPluginSignout plugin token
       setStatus noContent204
     _ -> setStatus badRequest400

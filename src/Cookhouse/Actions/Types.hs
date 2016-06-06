@@ -1,39 +1,19 @@
-module Cookhouse.Actions.Types where
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
-import Data.List
+module Cookhouse.Actions.Types where
 
 import Database.PostgreSQL.Simple
 
 import Web.Spock.Simple
 
-import Cookhouse.Config
-import Cookhouse.Data.Project
 import Cookhouse.Environment
-import Cookhouse.Plugins.Types
 
-type AppSpockM a = SpockM Connection () Environment a
+type AppSpockM = SpockT (WebStateM Connection () Environment)
 
-type AppSpockAction a = SpockAction Connection () Environment a
+type AppSpockAction = SpockActionCtx () Connection () Environment
 
-getEnvironment :: AppSpockAction Environment
-getEnvironment = getState
+instance HasEnvironment AppSpockM where
+  getEnvironment = getState
 
-getAuthenticationPlugins :: AppSpockAction [AuthenticationPlugin]
-getAuthenticationPlugins = envAuthenticationPlugins <$> getEnvironment
-
-getAuthenticationPlugin :: String -> AppSpockAction (Maybe AuthenticationPlugin)
-getAuthenticationPlugin name = do
-  plugins <- getAuthenticationPlugins
-  return $ find ((==name) . authPluginName) plugins
-
-getTriggerPlugins :: AppSpockAction [TriggerPlugin]
-getTriggerPlugins = envTriggerPlugins <$> getEnvironment
-
-getSourcePlugins :: AppSpockAction [SourcePlugin]
-getSourcePlugins = envSourcePlugins <$> getEnvironment
-
-getConfig :: AppSpockAction Config
-getConfig = envConfig <$> getEnvironment
-
-getProjects :: AppSpockAction [Project]
-getProjects = configProjects <$> getConfig
+instance HasEnvironment AppSpockAction where
+  getEnvironment = getState

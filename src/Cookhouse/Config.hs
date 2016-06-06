@@ -4,15 +4,11 @@
 module Cookhouse.Config
   ( Config(..)
   , readConfigOrDie
-  , createConn
-  , destroyConn
-  , withConnection
+  , mkConnectionPool
   ) where
 
-import           Control.Exception
-import           Control.Monad.Trans
-
 import           Data.Aeson (withObject)
+import           Data.Pool
 import           Data.Yaml
 import qualified Data.ByteString.Char8 as BS
 
@@ -76,12 +72,9 @@ createConn config = connect ConnectInfo
 destroyConn :: Connection -> IO ()
 destroyConn = close
 
-withConnection :: MonadIO m => Config -> (Connection -> IO a) -> m a
-withConnection config f = liftIO $ do
-  conn <- createConn config
-  res <- catch (f conn) $ \e -> close conn >> throw (e :: SomeException)
-  close conn
-  return res
+mkConnectionPool :: Config -> IO (Pool Connection)
+mkConnectionPool config =
+  createPool (createConn config) destroyConn 3 (24*60*60) 1
 
 instance FromJSON URI where
   parseJSON obj = do

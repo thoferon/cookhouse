@@ -6,6 +6,7 @@ module Cookhouse.Capabilities
   , anonymousCapability
   , singleCapability
   , toCookhouseCapability
+  , triggerWorkerCapability
   , module Control.SafeAccess
   ) where
 
@@ -35,4 +36,9 @@ toCookhouseCapability level = MkCapability $ \d -> case (level, d) of
   (User, CACreateJob) -> AccessGranted
   (_, CAGetJob)       -> AccessGranted
   (_, CAGetProjects)  -> AccessGranted
+  _ -> AccessDeniedSoft
+
+triggerWorkerCapability :: Capability CookhouseAccess
+triggerWorkerCapability = MkCapability $ \d -> case d of
+  CACreateJob -> AccessGranted
   _ -> AccessDeniedSoft

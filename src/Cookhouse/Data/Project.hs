@@ -4,6 +4,10 @@ module Cookhouse.Data.Project
   ( ProjectIdentifier(..)
   , Project(..)
   , Source(..)
+  , TimeSpecPart(..)
+  , TimeSpec(..)
+  , stringToTimeSpec
+  , doesTimeSpecMatch
   , Trigger(..)
   , Step(..)
   , PluginConfig
@@ -15,9 +19,9 @@ import           Control.Monad
 
 import           Data.Aeson
 import           Data.List
+import           Data.List.Split
 import           Data.Maybe
 import           Data.String
-import           Data.Time
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text           as T
 
@@ -26,7 +30,7 @@ import           Web.PathPieces
 import           Database.PostgreSQL.Simple.ToField
 
 import           Cookhouse.Data.Types
-import           Cookhouse.Plugins.Types hiding (triggerPluginName)
+import           Cookhouse.Plugins.Types
 
 newtype ProjectIdentifier
   = ProjectIdentifier { unProjectIdentifier :: String }
@@ -60,16 +64,16 @@ instance ToJSON Project where
     [ "identifier"       .= projectIdentifier
     , "source"           .= projectSource
     , "dependencies"     .= projectDependencies
-    , "triggers"         .= map triggerPluginName projectTriggers
-    , "build-steps"      .= map stepPluginName    projectBuildSteps
-    , "post-build-steps" .= map stepPluginName    projectPostBuildsteps
+    , "triggers"         .= projectTriggers
+    , "build-steps"      .= map stepPlugin projectBuildSteps
+    , "post-build-steps" .= map stepPlugin projectPostBuildsteps
     ]
 
 -- | Source where to fetch the code from
 data Source = Source
-  { sourcePluginName :: String       -- ^ Name of a plugin to handle the source
-  , sourceLocation   :: String       -- ^ File path, URL, ...
-  , sourceConfig     :: PluginConfig -- ^ Extra values for plugin configuration
+  { sourcePlugin   :: String       -- ^ Name of a plugin to handle the source
+  , sourceLocation :: String       -- ^ File path, URL, ...
+  , sourceConfig   :: PluginConfig -- ^ Extra values for plugin configuration
   } deriving (Eq, Show)
 
 instance FromJSON Source where
@@ -84,33 +88,99 @@ instance FromJSON Source where
 
 instance ToJSON Source where
   toJSON (Source{..}) = object
-     [ "plugin"   .= sourcePluginName
+     [ "plugin"   .= sourcePlugin
      , "location" .= sourceLocation
      ]
 
+data TimeSpecPart
+  = TSPartMultiple Int
+  | TSPartList [Int]
+  | TSPartAny
+  deriving (Eq, Show)
+
+data TimeSpec = TimeSpec
+  { tspecMinute :: TimeSpecPart
+  , tspecHour   :: TimeSpecPart
+  } deriving (Eq, Show)
+
+stringToTimeSpec :: String -> Maybe TimeSpec
+stringToTimeSpec fullStr = do
+    let (minStr, hourStr) = fmap (drop 1) $ break (==' ') fullStr
+    minPart  <- readPart 60 minStr
+    hourPart <- readPart 24 hourStr
+    return TimeSpec { tspecMinute = minPart , tspecHour = hourPart }
+
+  where
+    readPart :: Int -> String -> Maybe TimeSpecPart
+    readPart upperBound str = case str of
+      "*" -> return TSPartAny
+      '*' : '/' : numStr -> TSPartMultiple <$> readNum upperBound numStr
+      _ -> do
+        let numStrs = splitOn "," str
+        nums <- sequence $ map (readNum upperBound) numStrs
+        return $ TSPartList nums
+
+    readNum :: Int -> String -> Maybe Int
+    readNum upperBound str = case reads str of
+      (n,""):_ | 0 <= n && n < upperBound -> return n
+      _ -> Nothing
+
+timeSpecToString :: TimeSpec -> String
+timeSpecToString (TimeSpec{..}) =
+    showPart tspecMinute ++ " " ++ showPart tspecHour
+  where
+    showPart :: TimeSpecPart -> String
+    showPart part = case part of
+      TSPartMultiple n  -> "*/" ++ show n
+      TSPartList     ns -> intercalate "," $ map show ns
+      TSPartAny         -> "*"
+
+doesTimeSpecMatch :: TimeSpec -> Int -> Int -> Bool
+doesTimeSpecMatch (TimeSpec{..}) hour minute =
+    check tspecHour hour && check tspecMinute minute
+  where
+    check :: TimeSpecPart -> Int -> Bool
+    check part n = case part of
+      TSPartMultiple m -> n `mod` m == 0
+      TSPartList ns    -> n `elem` ns
+      TSPartAny        -> True
+
+instance FromJSON TimeSpec where
+  parseJSON = withText "TimeSpec" $ \txt ->
+    case stringToTimeSpec $ T.unpack txt of
+      Nothing -> fail $ "invalid time spec: " ++ T.unpack txt
+      Just ts -> return ts
+
+instance ToJSON TimeSpec where
+  toJSON = toJSON . timeSpecToString
+
 -- | Event that should trigger a build
 data Trigger = Trigger
-  { triggerPluginName :: String
-    -- ^ Name of a plugin to check this event
-  , triggerWaitingTime :: NominalDiffTime -- ^ Period of time between checks
-  , triggerConfig      :: PluginConfig
-    -- ^ Extra values for plugin configuration
+  { triggerPlugin   :: String       -- ^ Name of a plugin to check this event
+  , triggerTimeSpec :: TimeSpec     -- ^ When to run the trigger
+  , triggerConfig   :: PluginConfig -- ^ Extra values for plugin configuration
   } deriving (Eq, Show)
 
 instance FromJSON Trigger where
   parseJSON = withObject "Trigger" $ \obj -> do
     config <- fmap catMaybes . forM (M.toList obj) $ \(k,v) ->
-      if k `elem` ["plugin", "waiting-time"]
+      if k `elem` ["plugin", "time-spec"]
         then return Nothing
         else do
           v' <- parseJSON v
           return $ Just (T.unpack k, v')
-    Trigger <$> obj .: "plugin" <*> obj .: "waiting-time" <*> pure config
+    Trigger <$> obj .: "plugin" <*> obj .: "time-spec" <*> pure config
+
+instance ToJSON Trigger where
+  toJSON (Trigger{..}) = object
+    [ "name"      .= triggerPlugin
+    , "time_spec" .= triggerTimeSpec
+    ]
 
 -- | Action to perform in order to build or deploy the project
 data Step = Step
-  { stepPluginName :: String       -- ^ Name of a plugin that will perform it
-  , stepConfig     :: PluginConfig -- ^ Extra values for plugin configuration
+  { stepPlugin :: String       -- ^ Name of a plugin that will perform it
+  , stepConfig :: PluginConfig -- ^ Extra values for plugin configuration
   } deriving (Eq, Show)
 
 instance FromJSON Step where

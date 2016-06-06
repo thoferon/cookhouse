@@ -2,6 +2,7 @@ module Cookhouse.Plugins.Types
   ( PluginM
   , PluginConfig
   , SimpleValue(..)
+  , runPlugin
   -- * Authentication plugins
   , Token(..)
   , AccessLevel(..)
@@ -38,6 +39,9 @@ instance FromJSON SimpleValue where
     (SVBool <$> parseJSON v)
     <|> (SVInt <$> parseJSON v)
     <|> (SVString <$> parseJSON v)
+
+runPlugin :: MonadIO m => PluginM a -> m (Either String a)
+runPlugin = liftIO . runExceptT
 
 {-
  - Authentication plugins
