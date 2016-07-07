@@ -1,4 +1,10 @@
+{-# LANGUAGE DeriveGeneric #-}
+
 module Cookhouse.Errors where
+
+import GHC.Generics
+
+import Data.Binary
 
 import Network.HTTP.Types.Status
 
@@ -14,11 +20,15 @@ data CookhouseError
   | AuthenticationPluginError String String
   | TriggerPluginError String String
   | SourcePluginError String String
+  | StepPluginError String String
+  | StepFailed String
   | MissingPluginError String
   | IncorrectProjectIdentifierError String
   | CircularDependencyError String
   | IOError String
-  deriving (Eq, Show)
+  deriving (Eq, Show, Generic)
+
+instance Binary CookhouseError
 
 class Show e => HTTPError e where
   errStatusAndMsg :: e -> (Status, String)
@@ -42,6 +52,9 @@ instance HTTPError CookhouseError where
     SourcePluginError name msg ->
       ( internalServerError500
       , "Source plugin \"" ++ name ++ "\" failed:" ++ msg )
+    StepPluginError name msg ->
+      ( internalServerError500
+      , "Step plugin \"" ++ name ++ "\" failed:" ++ msg )
     MissingPluginError name ->
       (badRequest400 , "Incorrect plugin name: " ++ name)
     IncorrectProjectIdentifierError identifier ->
@@ -50,7 +63,7 @@ instance HTTPError CookhouseError where
     CircularDependencyError identifier ->
       ( internalServerError500
       , "Circular dependency around " ++ identifier ++ "." )
-    IOError _ -> (internalServerError500, "Something went wrong.")
+    _ -> (internalServerError500, "Something went wrong.")
 
 cantBeBlankError :: String -> CookhouseError
 cantBeBlankError = flip ValidationError "Can't be blank"

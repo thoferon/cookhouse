@@ -3,9 +3,11 @@
 module Cookhouse.Workers.Helpers
   ( WorkerM
   , runWorker
+  , getPool
   , inDataLayer
   , logError
   , getProjectDirectory
+  , workerMain
   ) where
 
 import Control.Monad.Catch
@@ -16,10 +18,12 @@ import Data.Pool
 import Data.Time
 
 import System.IO
+import System.Exit
 
 import Database.PostgreSQL.Simple
 
 import Cookhouse.Capabilities
+import Cookhouse.Config
 import Cookhouse.Environment
 import Cookhouse.Errors
 import Cookhouse.Data.Types
@@ -34,9 +38,12 @@ instance HasEnvironment WorkerM where
 getCapability :: WorkerM (Capability CookhouseAccess)
 getCapability = (\(_,c,_) -> c) <$> ask
 
+getPool :: WorkerM (Pool Connection)
+getPool = (\(_,_,p) -> p) <$> ask
+
 withConnection :: (Connection -> WorkerM a) -> WorkerM a
 withConnection f = do
-  pool <- (\(_,_,p) -> p) <$> ask
+  pool <- getPool
   (conn, localPool) <- liftIO $ takeResource pool
   let action  = f conn
       action' = catchError (Right <$> action) (return . Left)
@@ -66,3 +73,12 @@ runWorker env cap pool action = runExceptT $ runReaderT action (env, cap, pool)
 
 logError :: MonadIO m => CookhouseError -> m ()
 logError = liftIO . hPutStrLn stderr . show
+
+workerMain :: Capability CookhouseAccess -> WorkerM () -> Environment -> IO ()
+workerMain cap action env = do
+  pool <- mkConnectionPool $ envConfig env
+  eRes <- runWorker env cap pool action
+  case eRes of
+    Left  err -> logError err
+    Right ()  -> return ()
+  exitFailure -- not supposed to terminate

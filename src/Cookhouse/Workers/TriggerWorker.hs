@@ -7,10 +7,7 @@ import Control.Monad.Except
 
 import Data.Time
 
-import System.Exit
-
 import Cookhouse.Capabilities
-import Cookhouse.Config
 import Cookhouse.Data.Project
 import Cookhouse.Environment
 import Cookhouse.Errors
@@ -19,15 +16,9 @@ import Cookhouse.Plugins.Types
 import Cookhouse.Workers.Helpers
 
 triggerWorker :: Environment -> IO ()
-triggerWorker env = do
-  pool <- mkConnectionPool $ envConfig env
-  eRes <- runWorker env triggerWorkerCapability pool $ do
-    forEveryMinute $ \hour minute ->
-      catchError (checkTriggers hour minute) logError
-  case eRes of
-    Left  err -> logError err
-    Right ()  -> return ()
-  exitFailure -- not supposed to terminate
+triggerWorker = workerMain triggerWorkerCapability $
+  forEveryMinute $ \hour minute ->
+    catchError (checkTriggers hour minute) logError
 
 checkTriggers :: Int -> Int -> WorkerM ()
 checkTriggers hour minute = do

@@ -13,7 +13,6 @@ import           Database.PostgreSQL.Simple.ToRow
 
 import           Cookhouse.Capabilities
 import           Cookhouse.Data.Project
-import           Cookhouse.Data.Internal
 import           Cookhouse.Data.Types
 
 data JobStatus
@@ -87,9 +86,11 @@ data Job = Job
   , jobStatus            :: JobStatus
   , jobProjectIdentifier :: ProjectIdentifier
   , jobDependencies      :: [EntityID Job]
-  , jobPath              :: Maybe FilePath
   , jobCreationTime      :: UTCTime
   } deriving (Eq, Show)
+
+jobDirectory :: Job -> FilePath
+jobDirectory = formatTime defaultTimeLocale "%Y%m%d%H%M" . jobCreationTime
 
 instance ToJSON Job where
   toJSON (Job{..}) = object
@@ -97,13 +98,12 @@ instance ToJSON Job where
     , "status"             .= jobStatus
     , "project_identifier" .= jobProjectIdentifier
     , "dependencies"       .= jobDependencies
-    , "path"               .= jobPath
     , "creation_time"      .= jobCreationTime
     ]
 
 instance PureFromRow Job where
   pureFromRow = Job
-    <$> field <*> field <*> field <*> (fmap V.toList field) <*> field <*> field
+    <$> field <*> field <*> field <*> (fmap V.toList field) <*> field
 
 instance ToRow Job where
   toRow (Job{..}) =
@@ -111,7 +111,6 @@ instance ToRow Job where
     , toField jobStatus
     , toField jobProjectIdentifier
     , toField $ V.fromList jobDependencies
-    , toField jobPath
     , toField jobCreationTime
     ]
 
@@ -120,7 +119,7 @@ instance Storable Job where
 
   tableName  _ = "jobs"
   fieldNames _ = [ "type", "status", "project_identifier", "dependencies"
-                 , "path", "creation_time"
+                 , "creation_time"
                  ]
 
 instance PureFromField (EntityID Job) where
@@ -137,13 +136,17 @@ instance PathPiece (EntityID Job) where
   toPathPiece   = toPathPiece . unJobID
 
 data JobField a where
+  JobIDField           :: JobField (EntityID Job)
   JobStatus            :: JobField JobStatus
   JobProjectIdentifier :: JobField ProjectIdentifier
+  JobCreationTime      :: JobField UTCTime
 
 instance IsField Job JobField where
   toFieldName f = case f of
+    JobIDField           -> idFieldName (Proxy :: Proxy Job)
     JobStatus            -> "status"
     JobProjectIdentifier -> "project_identifier"
+    JobCreationTime      -> "creation_time"
 
 getJob :: MonadDataLayer m => EntityID Job -> m Job
 getJob jobID = do
@@ -162,6 +165,11 @@ findJobs mods = do
   ensureAccess CAGetJob
   select mods
 
+editJob :: MonadDataLayer m => EntityID Job -> JobStatus -> m ()
+editJob jobID status = do
+  ensureAccess CAEditJob
+  update jobID ["status" =. status]
+
 createJob :: MonadDataLayer m => JobType -> ProjectIdentifier -> [EntityID Job]
           -> m (EntityID Job)
 createJob typ identifier deps = do
@@ -172,7 +180,6 @@ createJob typ identifier deps = do
     , jobStatus            = JobInQueue
     , jobProjectIdentifier = identifier
     , jobDependencies      = deps
-    , jobPath              = Nothing
     , jobCreationTime      = now
     }
 

@@ -23,9 +23,10 @@ import           Data.Maybe
 import           Data.Monoid
 import           Data.String
 import           Data.Time
-import qualified Data.ByteString.Char8   as BS
-import qualified Data.ByteString.Builder as BSB
-import qualified Data.Vector             as V
+import qualified Data.ByteString.Char8      as BS
+import qualified Data.ByteString.Lazy.Char8 as BSL
+import qualified Data.ByteString.Builder    as BSB
+import qualified Data.Vector                as V
 
 #ifdef DEBUG_SQL
 import           System.IO
@@ -240,6 +241,11 @@ instance PureFromField BS.ByteString where
   pureFromField = do
     ensureFieldType ["varchar", "text"]
     ensureNotNull
+
+instance PureFromField BSL.ByteString where
+  pureFromField = do
+    ensureFieldType ["varchar", "text"]
+    (BSL.fromChunks . pure) <$> ensureNotNull
 
 instance PureFromField String where
   pureFromField = BS.unpack <$> pureFromField

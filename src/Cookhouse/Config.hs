@@ -31,6 +31,7 @@ data Config = Config
   , configCORSOrigins      :: [URI]
   , configBuildDirectory   :: FilePath
   , configProjects         :: [Project]
+  , configMaxJobCount      :: Int
   }
 
 instance FromJSON Config where
@@ -46,6 +47,7 @@ instance FromJSON Config where
       <*> obj .: "cors-origins"
       <*> obj .: "build-directory"
       <*> obj .: "projects"
+      <*> obj .: "max-job-count"
 
 readConfigOrDie :: FilePath -> IO Config
 readConfigOrDie path = do

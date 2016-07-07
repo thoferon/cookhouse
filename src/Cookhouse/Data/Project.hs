@@ -46,7 +46,7 @@ data Project = Project
                                        -- ^ Project identifiers of dependencies
   , projectTriggers       :: [Trigger] -- ^ Events on which to trigger a build
   , projectBuildSteps     :: [Step]    -- ^ Steps to build the project
-  , projectPostBuildsteps :: [Step]    -- ^ Steps to perform afterwards
+  , projectPostBuildSteps :: [Step]    -- ^ Steps to perform afterwards
                                        -- (e.g. deployment)
   } deriving (Eq, Show)
 
@@ -66,7 +66,7 @@ instance ToJSON Project where
     , "dependencies"     .= projectDependencies
     , "triggers"         .= projectTriggers
     , "build-steps"      .= map stepPlugin projectBuildSteps
-    , "post-build-steps" .= map stepPlugin projectPostBuildsteps
+    , "post-build-steps" .= map stepPlugin projectPostBuildSteps
     ]
 
 -- | Source where to fetch the code from

@@ -1,21 +1,4 @@
-module Cookhouse.Environment
-  ( Environment(..)
-  , defaultEnvironment
-  , mkEnvironment
-  , HasEnvironment(..)
-  , getAuthenticationPlugins
-  , findAuthenticationPlugin
-  , getAuthenticationPlugin
-  , getTriggerPlugins
-  , findTriggerPlugin
-  , getTriggerPlugin
-  , getSourcePlugins
-  , findSourcePlugin
-  , getSourcePlugin
-  , getConfig
-  , getProjects
-  , getProjectDirectory
-  ) where
+module Cookhouse.Environment where
 
 import Control.Monad.Except
 
@@ -25,6 +8,7 @@ import System.Directory
 import System.FilePath
 
 import Cookhouse.Config
+import Cookhouse.Data.Job
 import Cookhouse.Data.Project
 import Cookhouse.Errors
 import Cookhouse.Plugins.Types
@@ -33,6 +17,7 @@ data Environment = Environment
   { envAuthenticationPlugins :: [AuthenticationPlugin]
   , envTriggerPlugins        :: [TriggerPlugin]
   , envSourcePlugins         :: [SourcePlugin]
+  , envStepPlugins           :: [StepPlugin]
   , envConfig                :: Config
   }
 
@@ -41,16 +26,18 @@ defaultEnvironment config = Environment
   { envAuthenticationPlugins = []
   , envTriggerPlugins        = []
   , envSourcePlugins         = []
+  , envStepPlugins           = []
   , envConfig                = config
   }
 
 mkEnvironment :: Config -> [AuthenticationPlugin] -> [TriggerPlugin]
-              -> [SourcePlugin] -> Environment
-mkEnvironment config authPlugins triggerPlugins sourcePlugins =
+              -> [SourcePlugin] -> [StepPlugin] -> Environment
+mkEnvironment config authPlugins triggerPlugins sourcePlugins stepPlugins =
   (defaultEnvironment config)
     { envAuthenticationPlugins = authPlugins
     , envTriggerPlugins        = triggerPlugins
     , envSourcePlugins         = sourcePlugins
+    , envStepPlugins           = stepPlugins
     }
 
 class Functor f => HasEnvironment f where
@@ -96,11 +83,33 @@ getSourcePlugin name = do
   mPlugin <- findSourcePlugin name
   maybe (throwError $ MissingPluginError name) return mPlugin
 
+getStepPlugins :: HasEnvironment f => f [StepPlugin]
+getStepPlugins = envStepPlugins <$> getEnvironment
+
+findStepPlugin :: HasEnvironment f => String -> f (Maybe StepPlugin)
+findStepPlugin name =
+  find ((==name) . stepPluginName) <$> getStepPlugins
+
+getStepPlugin :: (HasEnvironment m, MonadError CookhouseError m)
+              => String -> m StepPlugin
+getStepPlugin name = do
+  mPlugin <- findStepPlugin name
+  maybe (throwError $ MissingPluginError name) return mPlugin
+
 getConfig :: HasEnvironment f => f Config
 getConfig = envConfig <$> getEnvironment
 
 getProjects :: HasEnvironment f => f [Project]
 getProjects = configProjects <$> getConfig
+
+getProject :: (HasEnvironment m, MonadError CookhouseError m)
+           => ProjectIdentifier -> m Project
+getProject identifier = do
+  projects <- getProjects
+  case find ((==identifier) . projectIdentifier) projects of
+    Nothing -> throwError $
+      IncorrectProjectIdentifierError $ unProjectIdentifier identifier
+    Just project -> return project
 
 getProjectDirectory :: (HasEnvironment m, MonadIO m) => Project -> m FilePath
 getProjectDirectory (Project{..}) = do
@@ -108,3 +117,14 @@ getProjectDirectory (Project{..}) = do
   let path = configBuildDirectory </> unProjectIdentifier projectIdentifier
   liftIO $ createDirectoryIfMissing True path
   return path
+
+getJobDirectory :: (HasEnvironment m, MonadIO m) => Project -> Job -> m FilePath
+getJobDirectory project job = do
+  projectDir <- getProjectDirectory project
+  return $ projectDir </> jobDirectory job
+
+getJobOutputFile :: (HasEnvironment m, MonadIO m) => Project -> Job
+                 -> m FilePath
+getJobOutputFile project job = do
+  jobDir <- getJobDirectory project job
+  return $ jobDir </> "cookhouse-output"

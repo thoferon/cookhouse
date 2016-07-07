@@ -8,6 +8,7 @@ database:
   name: cookhouse
 cors-origins: []
 build-directory: /tmp
+max-job-count: 2
 projects:
   - identifier: cookhouse
     source:

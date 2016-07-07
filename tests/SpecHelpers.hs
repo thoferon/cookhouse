@@ -44,6 +44,10 @@ import           Test.Hspec
 import           Test.Hspec.QuickCheck
 import           Test.QuickCheck
 
+singleCapability :: CookhouseAccess -> Capability CookhouseAccess
+singleCapability d = MkCapability $ \d' ->
+  if d == d' then AccessGranted else AccessDenied
+
 type EmulatorM = StateT DatabaseEmulator (Either String)
 
 failEmulator :: String -> EmulatorM a

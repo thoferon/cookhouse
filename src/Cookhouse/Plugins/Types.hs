@@ -1,8 +1,15 @@
 module Cookhouse.Plugins.Types
   ( PluginM
+  , runPlugin
   , PluginConfig
   , SimpleValue(..)
-  , runPlugin
+  , lookupConfig
+  , lookupConfigBool
+  , lookupConfigInt
+  , lookupConfigString
+  , getConfigBool
+  , getConfigInt
+  , getConfigString
   -- * Authentication plugins
   , Token(..)
   , AccessLevel(..)
@@ -12,6 +19,8 @@ module Cookhouse.Plugins.Types
   -- * Trigger plugins
   , TriggerPlugin(..)
   -- * Step plugins
+  , StepPlugin(..)
+  , emptyRollback
   ) where
 
 import           Control.Applicative
@@ -20,11 +29,16 @@ import           Control.Monad.Except
 import           Data.Aeson
 import qualified Data.ByteString.Char8 as BS
 
+import           System.IO
+
 {-
  - Generic types
  -}
 
 type PluginM = ExceptT String IO
+
+runPlugin :: MonadIO m => PluginM a -> m (Either String a)
+runPlugin = liftIO . runExceptT
 
 type PluginConfig = [(String, SimpleValue)]
 
@@ -40,8 +54,47 @@ instance FromJSON SimpleValue where
     <|> (SVInt <$> parseJSON v)
     <|> (SVString <$> parseJSON v)
 
-runPlugin :: MonadIO m => PluginM a -> m (Either String a)
-runPlugin = liftIO . runExceptT
+lookupConfig :: PluginConfig -> String -> Maybe SimpleValue
+lookupConfig = flip lookup
+
+lookupConfigBool :: PluginConfig -> String -> Maybe Bool
+lookupConfigBool config key = do
+  sv <- lookupConfig config key
+  case sv of
+    SVBool b -> return b
+    _ -> Nothing
+
+lookupConfigInt :: PluginConfig -> String -> Maybe Int
+lookupConfigInt config key = do
+  sv <- lookupConfig config key
+  case sv of
+    SVInt i -> return i
+    _ -> Nothing
+
+lookupConfigString :: PluginConfig -> String -> Maybe String
+lookupConfigString config key = do
+  sv <- lookupConfig config key
+  case sv of
+    SVString s -> return s
+    _ -> Nothing
+
+getConfigBool :: PluginConfig -> String -> PluginM Bool
+getConfigBool config key = case lookupConfigBool config key of
+  Nothing -> throwError $
+    "Expected boolean for key " ++ show key ++ " in plugin config"
+  Just b -> return b
+
+getConfigInt :: PluginConfig -> String -> PluginM Int
+getConfigInt config key = case lookupConfigInt config key of
+  Nothing -> throwError $
+    "Expected integer for key " ++ show key ++ " in plugin config"
+  Just i -> return i
+
+getConfigString :: PluginConfig -> String -> PluginM String
+getConfigString config key = case lookupConfigString config key of
+  Nothing -> throwError $
+    "Expected string for key " ++ show key ++ " in plugin config"
+  Just s -> return s
 
 {-
  - Authentication plugins
@@ -87,11 +140,11 @@ data SourcePlugin = SourcePlugin
 data TriggerPlugin = TriggerPlugin
   { triggerPluginName  :: String
   , triggerPluginCheck :: (FilePath -> PluginM ())
-                          -- ^ A function to make the source plugin fetch the
-                          -- repository
+                       -- ^ A function to make the source plugin fetch the
+                       -- repository
                        -> (FilePath -> PluginM Bool)
-                          -- ^ A function to make the source plugin check for
-                          -- changes
+                       -- ^ A function to make the source plugin check for
+                       -- changes
                        -> FilePath     -- ^ Directory of the project
                        -> PluginConfig -- ^ Extra configuration
                        -> PluginM Bool
@@ -101,8 +154,15 @@ data TriggerPlugin = TriggerPlugin
  - Step plugins
  -}
 
+-- | A plugin to (post-)build the project
 data StepPlugin = StepPlugin
-  { stepPluginName   :: String
-  , stepPluginAction :: FilePath     -- ^ Directory of the build
-                     -> PluginM Bool -- ^ Whether the step has succeeded
+  { stepPluginName     :: String
+  , stepPluginRun      :: FilePath     -- ^ Directory of the build
+                       -> Handle       -- ^ Handle of the output file
+                       -> PluginConfig -- ^ Extra configuration
+                       -> PluginM Bool -- ^ Whether the step has succeeded
+  , stepPluginRollback :: FilePath -> Handle -> PluginConfig -> PluginM Bool
   }
+
+emptyRollback :: FilePath -> Handle -> PluginConfig -> PluginM Bool
+emptyRollback _ _ _ = return True

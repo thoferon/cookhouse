@@ -24,11 +24,11 @@ spec = do
         stringToJobType (jobTypeToString typ) `shouldBe` Just typ
 
   let pastTime  = UTCTime (ModifiedJulianDay 40000) 7825
-      job       = Job Build JobSuccess "identifier" [] Nothing pastTime
+      job       = Job Build JobSuccess "identifier" [] pastTime
       jobFields = [ integer 42, PureField "job_type" (Just "build")
                   , PureField "job_status" (Just "success")
                   , varchar "identifier", emptyArray "int4"
-                  , nullValue "varchar", timestamp' pastTime ]
+                  , timestamp' pastTime ]
 
   describe "getJob" $ do
     let fakeSelect "jobs" _ mods
@@ -87,6 +87,24 @@ spec = do
       test (singleCapability CAGetJob) emulator (getPendingJobs)
         `shouldBe` Right [Entity (JobID 42) job]
 
+  describe "editJob" $ do
+    let fakeUpdate "jobs" [("status", action)] mods
+          | action == toField ("rollbacked" :: String)
+            && wmodTemplate (selModWhere mods) == "id = ?"
+            && wmodValues (selModWhere mods) == [toField (42 :: Int)] = return 1
+        fakeUpdate tbl pairs mods = failEmulator $
+          "Can't handle UPDATE: " ++ show (tbl, pairs, mods)
+
+        emulator = mempty { deUpdate = fakeUpdate }
+
+    it "requires the capability CAEditJob" $ do
+      test anonymousCapability mempty (editJob (JobID 1) JobSuccess)
+        `shouldBe` Left (AccessError CAEditJob)
+
+    it "edits the job status" $ do
+      test (singleCapability CAEditJob) emulator
+           (editJob (JobID 42) JobRollbacked) `shouldBe` Right ()
+
   describe "createJob" $ do
     it "requires the capability CACreateJob" $ do
       test anonymousCapability mempty (createJob Build "some-project" [])
@@ -94,11 +112,11 @@ spec = do
 
     it "inserts a new Job in the database" $ do
       let job' = Job PostBuild JobInQueue "identifier" [JobID 42, JobID 1337]
-                     Nothing someTime
+                     someTime
           fakeInsert "jobs" _ "id" vals
             | [toRow job'] == map toRow vals = return [[integer 9999]]
           fakeInsert tbl cols ret vals = failEmulator $
-            "Wrong request: " ++ show (tbl, cols, ret, map toRow vals)
+            "Can't handle INSERT: " ++ show (tbl, cols, ret, map toRow vals)
           emulator = mempty { deInsert = fakeInsert }
 
       test (singleCapability CACreateJob) emulator
@@ -114,7 +132,7 @@ spec = do
       let mkJobRows jobID deps =
             [ integer jobID, PureField "job_type" (Just "build")
             , PureField "job_status" (Just "in-queue"), varchar "identifier"
-            , array "int4" deps, nullValue "varchar", timestamp' someTime ]
+            , array "int4" deps, timestamp' someTime ]
 
           fakeSelect "jobs" _ mods
             | wmodValues (selModWhere mods) == [toField (11 :: Int)] =

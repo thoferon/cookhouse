@@ -10,7 +10,7 @@ commonsProject = Project
   , projectDependencies   = []
   , projectTriggers       = []
   , projectBuildSteps     = []
-  , projectPostBuildsteps = []
+  , projectPostBuildSteps = []
   }
 
 libAProject :: Project
@@ -20,7 +20,7 @@ libAProject = Project
   , projectDependencies   = ["commons"]
   , projectTriggers       = []
   , projectBuildSteps     = []
-  , projectPostBuildsteps = []
+  , projectPostBuildSteps = []
   }
 
 libBProject :: Project
@@ -30,7 +30,7 @@ libBProject = Project
   , projectDependencies   = ["commons"]
   , projectTriggers       = []
   , projectBuildSteps     = []
-  , projectPostBuildsteps = []
+  , projectPostBuildSteps = []
   }
 
 websiteProject :: Project
@@ -40,7 +40,7 @@ websiteProject = Project
   , projectDependencies   = ["libA", "libB", "commons"]
   , projectTriggers       = []
   , projectBuildSteps     = []
-  , projectPostBuildsteps = []
+  , projectPostBuildSteps = []
   }
 
 independentProject :: Project
@@ -50,7 +50,7 @@ independentProject = Project
   , projectDependencies   = []
   , projectTriggers       = []
   , projectBuildSteps     = []
-  , projectPostBuildsteps = []
+  , projectPostBuildSteps = []
   }
 
 websiteWithIndependentProject :: Project

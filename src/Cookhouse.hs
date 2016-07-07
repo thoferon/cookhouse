@@ -3,6 +3,7 @@ module Cookhouse
   , mkEnvironment
   , webServer
   , triggerWorker
+  , jobWorker
   ) where
 
 import Data.Maybe
@@ -14,6 +15,7 @@ import Web.Spock.Simple
 import Cookhouse.App
 import Cookhouse.Config
 import Cookhouse.Environment
+import Cookhouse.Workers.JobWorker
 import Cookhouse.Workers.TriggerWorker
 
 readConfigFromArgs :: IO Config
