@@ -1,5 +1,9 @@
 module Cookhouse.Actions.JobActions where
 
+import Control.Monad.Trans
+
+import System.Directory
+
 import Cookhouse.Actions.Helpers
 import Cookhouse.Data.Job
 import Cookhouse.Logic.JobGeneration
@@ -30,5 +34,16 @@ getJobsOfProjectAction =
 
 deleteJobAction :: AppSpockAction ()
 deleteJobAction = runPOF (paramPOF "job_id") $ \jobID -> do
-  eRes <- inDataLayer $ deleteJob jobID
-  withDataLayerResult eRes $ \_ -> setStatus noContent204
+  eJob <- inDataLayer $ do
+    job <- getJob jobID
+    deleteJob jobID
+    return job
+
+  withDataLayerResult eJob $ \job -> do
+    mProject <- findProject $ jobProjectIdentifier job
+    case mProject of
+      Nothing -> return ()
+      Just project -> do
+        dir <- getJobDirectory project job
+        liftIO $ removeDirectoryRecursive dir
+    setStatus noContent204
