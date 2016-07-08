@@ -128,9 +128,8 @@ performJob phase (Entity jobID job@Job{..}) = do
 runStepPlugin :: Project -> Step -> JobPhase -> Job
               -> WorkerM (Either String Bool)
 runStepPlugin project step phase job = do
-    base <- getProjectDirectory project
-    let dir     = base </> jobDirectory job
-        logFile = dir </> jobOutputFile phase job
+    dir <- getJobDirectory project job
+    let logFile = dir </> jobOutputFile phase job
     fetchRepoIfMissing dir
     runStep dir logFile
 

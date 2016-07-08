@@ -122,9 +122,3 @@ getJobDirectory :: (HasEnvironment m, MonadIO m) => Project -> Job -> m FilePath
 getJobDirectory project job = do
   projectDir <- getProjectDirectory project
   return $ projectDir </> jobDirectory job
-
-getJobOutputFile :: (HasEnvironment m, MonadIO m) => Project -> Job
-                 -> m FilePath
-getJobOutputFile project job = do
-  jobDir <- getJobDirectory project job
-  return $ jobDir </> "cookhouse-output"
