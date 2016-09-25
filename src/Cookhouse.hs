@@ -34,3 +34,13 @@ webServer env = do
   pool <- mkConnectionPool config
   let spockConfig = defaultSpockCfg () (PCPool pool) env
   runSpock (configPort config) $ spock spockConfig (app config)
+
+defaultMain :: [AuthenticationPlugin] -> [TriggerPlugin] -> [SourcePlugin]
+            -> [StepPlugin] -> IO ()
+defaultMain authPlugins sourcePlugins triggerPlugins stepPlugins = do
+  config <- readConfigFromArgs
+  let env = mkEnvironment config authPlugins sourcePlugins
+                          triggerPlugins stepPlugins
+  void $ forkIO $ triggerWorker env
+  void $ forkIO $ jobWorker     env
+  webServer env
