@@ -3,3 +3,8 @@ dist$
 cabal\.sandbox\.config$
 ^config\.yml$
 \.stack-work$
+^front-end/_build$
+^front-end/Makefile$
+^front-end/configure$
+^front-end/setup\.
+main\.js$

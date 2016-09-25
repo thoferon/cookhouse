@@ -4,7 +4,11 @@ module Cookhouse
   , webServer
   , triggerWorker
   , jobWorker
+  , defaultMain
   ) where
+
+import Control.Concurrent
+import Control.Monad
 
 import Data.Maybe
 
@@ -15,6 +19,7 @@ import Web.Spock.Simple
 import Cookhouse.App
 import Cookhouse.Config
 import Cookhouse.Environment
+import Cookhouse.Plugins.Types
 import Cookhouse.Workers.JobWorker
 import Cookhouse.Workers.TriggerWorker
 

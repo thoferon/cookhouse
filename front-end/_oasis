@@ -1,0 +1,18 @@
+OASISFormat:  0.4
+Name:         cookhouse-front-end
+Version:      1.0.0
+Synopsis:     Front-end interface for Cookhouse
+Authors:      Thomas Feron <thomas.feron@redspline.com>
+License:      BSD-3-clause
+Plugins:      DevFiles (0.4)
+
+PostBuildCommand:
+  js_of_ocaml main.byte -o public/scripts/main.js
+
+Executable "cookhouse-front-end"
+  Path:       src
+  BuildTools: ocamlbuild
+  MainIs:     main.ml
+
+  BuildDepends:
+    js_of_ocaml, sharp
