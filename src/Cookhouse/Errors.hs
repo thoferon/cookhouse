@@ -17,6 +17,7 @@ data CookhouseError
   | ParamError String
   | ValidationError String String
   | PermissionError CookhouseAccess
+  | InvalidCredentials
   | AuthenticationPluginError String String
   | TriggerPluginError String String
   | SourcePluginError String String
@@ -43,6 +44,7 @@ instance HTTPError CookhouseError where
     ValidationError f msg  ->
       (badRequest400, "Error on field \"" ++ f ++ "\": " ++ msg ++ ".")
     PermissionError _      -> (unauthorized401, "Permission denied.")
+    InvalidCredentials     -> (unauthorized401, "Invalid credentials.")
     AuthenticationPluginError name msg ->
       ( unauthorized401
       , "Authentication plugin \"" ++ name ++ "\" failed: " ++ msg )

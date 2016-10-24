@@ -20,8 +20,9 @@ signinAction = do
       Just plugin -> do
         eRes <- runPlugin $ authPluginSignin plugin username password
         case eRes of
-          Left err -> failAction $ AuthenticationPluginError name err
-          Right token -> do
+          Left  err     -> failAction $ AuthenticationPluginError name err
+          Right Nothing -> failAction InvalidCredentials
+          Right (Just token) -> do
             setStatus ok200
             json $ object [ "token" .= token ]
 

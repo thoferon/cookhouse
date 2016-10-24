@@ -15,4 +15,4 @@ Executable "cookhouse-front-end"
   MainIs:     main.ml
 
   BuildDepends:
-    js_of_ocaml, sharp
+    js_of_ocaml, sharp, yojson

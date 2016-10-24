@@ -16,10 +16,12 @@ getPluginsAction = do
   authPluginDescrs   <- map AuthPluginDescription <$> getAuthenticationPlugins
   triggerPluginNames <- map triggerPluginName     <$> getTriggerPlugins
   sourcePluginNames  <- map sourcePluginName      <$> getSourcePlugins
+  stepPluginNames    <- map stepPluginName        <$> getStepPlugins
 
   setStatus ok200
   json $ object
     [ "authentication_plugins" .= authPluginDescrs
     , "trigger_plugins"        .= triggerPluginNames
     , "source_plugins"         .= sourcePluginNames
+    , "step_plugins"           .= stepPluginNames
     ]
