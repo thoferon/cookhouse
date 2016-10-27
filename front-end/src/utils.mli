@@ -1,7 +1,8 @@
-module Token : sig
-  val get : unit -> string option
-  val set : string -> unit
+module SessionInfo : sig
+  val get : unit -> (string * string) option
+  val set : (string * string) -> unit
   val clear : unit -> unit
+  val http_headers : unit -> (string * string) list
 end
 
 val push_state : string -> string -> unit

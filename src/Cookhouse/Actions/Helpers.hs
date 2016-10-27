@@ -86,7 +86,7 @@ getToken = fmap (Token . TE.encodeUtf8) <$> header "X-API-Token"
 
 getAuthenticationPluginName :: AppSpockAction (Maybe String)
 getAuthenticationPluginName =
-  fmap T.unpack <$> header "X-Authentication-Plugin"
+  fmap T.unpack <$> header "X-API-Authentication-Plugin"
 
 newtype ApiError = ApiError String
 

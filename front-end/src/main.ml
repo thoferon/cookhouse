@@ -3,40 +3,37 @@ open Sharp.Core.Behaviour
 open Sharp.Core.Network
 open Sharp.Event
 open Sharp.VDOM
+open Sharp.Router
 
+open Session
 open Utils
-open Signin
+
+let list_projects_network () =
+  let open Network.Infix in
+  initially (fun () -> print_endline "Project list network started")
+  >> finally (fun () -> print_endline "Project list network stopped")
+
+let project_network project_id =
+  initially (fun () -> print_endline ("Project network started for " ^ project_id))
+
+let routes container =
+  [ CF.parse Routes.list_projects
+             (fun () -> start (list_projects_network ()))
+  ; CVF.parse Routes.show_project
+              (fun project_id () -> start (project_network project_id))
+  ]
 
 let main_network () =
-  let signin_container = get_element "#signin-container" in
-  let signout_link     = get_element "#signout-link" in
+  let container    = get_element "#container" in
+  let signout_link = get_element "#signout-link" in
 
   let open Network.Infix in
-  click signout_link >>= fun signout_event ->
-  unbound_event () >>= fun token_event ->
-
-  let open Behaviour.Infix in
-  let token = last ~init:None token_event in
-  let signed_in = (function | Some _ -> true | None -> false) <$> token in
-
-  let open Network.Infix in
-  initially (fun () -> match Token.get () with
-                       | Some token ->
-                          let _ = trigger token_event (Some token) in ()
-                       | None       -> ())
-  >> react_ token Token.set
-  >> react_ signout_event (fun _ ->
-              let _ = Token.clear () in
-              let _ = trigger token_event None in
-              ()
-            )
-
-  >> vdom signin_container signed_in
-          (function
-           | true -> tag "span"
-           | false ->
-              E.div (signin_network token_event) |* ("class", "overlay")
-          )
+  session_network signout_link >>= fun signed_in ->
+  vdom container signed_in
+       (function
+        | true -> E.div (fun node -> router (routes node))
+        | false -> E.div (signin_network signed_in) |* ("class", "overlay")
+       )
 
 let () =
   (* Never stop this network *)

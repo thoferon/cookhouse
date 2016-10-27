@@ -10,6 +10,30 @@ open Sharp.Ticker
 
 open Api.Plugin
 open Api.Session
+open Utils
+
+let session_network signout_link =
+  let open Network.Infix in
+  click signout_link >>= fun signout_event ->
+  unbound_event () >>= fun sinfo_event ->
+
+  let open Behaviour.Infix in
+  let sinfo = last ~init:None sinfo_event in
+  let signed_in = (function | Some _ -> true | None -> false) <$> sinfo in
+
+  let open Network.Infix in
+  initially (fun () -> match SessionInfo.get () with
+                       | Some sinfo ->
+                          let _ = trigger sinfo_event (Some sinfo) in ()
+                       | None -> ())
+  >> react_ sinfo SessionInfo.set
+  >> react_ signout_event (fun _ ->
+              let _ = signout () in
+              let _ = SessionInfo.clear () in
+              let _ = trigger sinfo_event None in
+              ()
+            )
+  >> return signed_in
 
 let signin_network success_event signin_container =
   let open Network.Infix in
@@ -25,7 +49,7 @@ let signin_network success_event signin_container =
   (last ~init:"" <$> unbound_event ()) >>= fun password ->
   unbound_event () >>= fun submission ->
 
-  result_receiver () >>= fun signin_result ->
+  unbound_event () >>= fun signin_result ->
   every 1. () >>= fun _ -> (* to update messages *)
 
   let open Behaviour.Infix in
@@ -38,7 +62,7 @@ let signin_network success_event signin_container =
                 ) <$> last_for 5. signin_result
   in
   let vdom_data = (fun ps msg -> (ps, msg)) <$> auth_plugins <*> message in
-  let token =
+  let sinfo =
     (function | Some (Ok x) -> Some x | _ -> None) <$> signin_result
   in
 
@@ -47,8 +71,8 @@ let signin_network success_event signin_container =
           plug_lwt_result signin_result (signin plugin username password)
         )
 
-  >> react_ token (fun token ->
-              let _ = trigger success_event (Some token) in ()
+  >> react_ sinfo (fun sinfo ->
+              let _ = trigger success_event (Some sinfo) in ()
             )
 
   >> vdom signin_container vdom_data (fun (plugins, message) ->

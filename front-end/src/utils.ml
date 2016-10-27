@@ -1,21 +1,38 @@
-module Token = struct
+module SessionInfo = struct
   (* TODO: Fallback on something else when localStorage is not available *)
 
   let get () =
     match Js.Optdef.to_option Dom_html.window##.localStorage with
-    | Some storage -> Js.Opt.to_option
-                        (Js.Opt.map (storage##getItem (Js.string "token"))
-                                    Js.to_string)
+    | Some storage ->
+       Js.Opt.to_option
+         (Js.Opt.bind (storage##getItem (Js.string "token"))
+                      (fun token ->
+                        Js.Opt.map (storage##getItem (Js.string "plugin"))
+                                   (fun plugin ->
+                                     (Js.to_string token, Js.to_string plugin)
+                                   )
+                      )
+         )
     | None -> None
 
-  let set token =
+  let set (token, plugin) =
     Js.Optdef.iter Dom_html.window##.localStorage
                    (fun storage ->
-                     storage##setItem (Js.string "token") (Js.string token))
+                     storage##setItem (Js.string "token")  (Js.string token);
+                     storage##setItem (Js.string "plugin") (Js.string plugin)
+                   )
 
   let clear () =
     Js.Optdef.iter Dom_html.window##.localStorage
-                   (fun storage -> storage##removeItem (Js.string "token"))
+                   (fun storage ->
+                     storage##removeItem (Js.string "token");
+                     storage##removeItem (Js.string "plugin")
+                   )
+
+  let http_headers () = match get () with
+    | None -> []
+    | Some (token, plugin) ->
+       [("X-API-Token", token); ("X-API-Authentication-Plugin", plugin)]
 end
 
 let push_state title path =
