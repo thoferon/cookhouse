@@ -15,7 +15,7 @@ open Utils
 let session_network signout_link =
   let open Network.Infix in
   click signout_link >>= fun signout_event ->
-  unbound_event () >>= fun sinfo_event ->
+  event () >>= fun sinfo_event ->
 
   let open Behaviour.Infix in
   let sinfo = last ~init:None sinfo_event in
@@ -44,12 +44,12 @@ let signin_network success_event signin_container =
   in
   initially (fun () -> plug_lwt plugin_reception (get_plugins ()))
 
-  >> (last ~init:"" <$> unbound_event ()) >>= fun plugin ->
-  (last ~init:"" <$> unbound_event ()) >>= fun username ->
-  (last ~init:"" <$> unbound_event ()) >>= fun password ->
-  unbound_event () >>= fun submission ->
+  >> (last ~init:"" <$> event ()) >>= fun plugin ->
+  (last ~init:"" <$> event ()) >>= fun username ->
+  (last ~init:"" <$> event ()) >>= fun password ->
+  event () >>= fun submission ->
 
-  unbound_event () >>= fun signin_result ->
+  event () >>= fun signin_result ->
   every 1. () >>= fun _ -> (* to update messages *)
 
   let open Behaviour.Infix in

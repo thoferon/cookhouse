@@ -75,7 +75,7 @@ spawnNextJob = do
       env  <- getEnvironment
       pool <- lift getPool
 
-      i <- liftIO $ forkIO $ do
+      i <- liftIO $ forkOS $ do
         eRes <- runWorker env jobWorkerCapability pool $ case job of
           MetaJob Run      ent -> runJob      ent
           MetaJob Rollback ent -> rollbackJob ent

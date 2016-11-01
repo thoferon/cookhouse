@@ -5,5 +5,5 @@ type t =
   | Projects
   | Project of string
 
-val menu_network : (t, 'a) Behaviour.t -> Dom_html.element Js.t
-                   -> unit Network.t
+val menu_network : (t, 'a) Behaviour.t -> Api.Project.t list
+                   -> Dom_html.element Js.t -> unit Network.t

@@ -41,6 +41,6 @@ defaultMain authPlugins sourcePlugins triggerPlugins stepPlugins = do
   config <- readConfigFromArgs
   let env = mkEnvironment config authPlugins sourcePlugins
                           triggerPlugins stepPlugins
-  void $ forkIO $ triggerWorker env
-  void $ forkIO $ jobWorker     env
+  void $ forkOS $ triggerWorker env
+  void $ forkOS $ jobWorker     env
   webServer env

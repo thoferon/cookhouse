@@ -1,7 +1,6 @@
 open Sharp.Core
 open Sharp.VDOM
 open Sharp.Router
-open Sharp.Ajax
 
 open Behaviour
 open Network
@@ -14,6 +13,7 @@ type t =
   | Project of string
 
 let view highlight projects =
+  let project_ids = List.map Api.Project.identifier projects in
   tag "ul"
   |- (tag "li"
       |- (tag "a"
@@ -32,19 +32,7 @@ let view highlight projects =
                      |* ("class", if highlight = Project project_id
                                   then "highlight" else "")
                      |- text project_id)
-               ) projects))
+               ) project_ids))
 
-
-let menu_network highlight container =
-  let open Network.Infix in
-  (last ~init:[] <$> unbound_event ()) >>= fun projects ->
-
-  let open Behaviour.Infix in
-  let project_ids = List.map Api.Project.identifier <$> projects in
-  let dat = (fun h ps -> (h, ps)) <$> highlight <*> project_ids in
-
-  let open Network.Infix in
-  initially (fun () ->
-      plug_lwt project_ids (Api.Project.get_projects ())
-    )
-  >> vdom container dat (fun (highlight, projects) -> view highlight projects)
+let menu_network highlight projects container =
+  vdom container highlight (fun highlight -> view highlight projects)

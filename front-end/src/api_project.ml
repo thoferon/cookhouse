@@ -7,13 +7,20 @@ open Utils
 
 type t =
   { identifier : string
+  ; source_location : string
   }
 
 let identifier { identifier } = identifier
+let source_location { source_location } = source_location
 
 let parse_project_json obj =
-  let identifier = obj |> member "identifier" |> to_string in
-  { identifier }
+  let identifier = obj |> member "identifier" |> to_string
+  and source_location =
+    obj |> member "source" |> member "location" |> to_string
+  in
+  { identifier
+  ; source_location
+  }
 
 let get_projects () =
   let extract { code; content } =
