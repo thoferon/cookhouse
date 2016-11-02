@@ -1,6 +1,6 @@
 open Sharp.Core
 open Sharp.Event
-open Sharp.VDOM
+open Sharp.Vdom
 open Sharp.Router
 open Sharp.Ajax
 
@@ -11,12 +11,7 @@ open Menu
 open Session
 open Project
 open Utils
-
-let overview_network menu_highlight container =
-  let open Network.Infix in
-  initially (fun () -> let _ = trigger menu_highlight Overview in ())
-  >> initially (fun () -> print_endline "Project list network started")
-  >> finally (fun () -> print_endline "Project list network stopped")
+open Overview
 
 let routes menu_highlight projects container =
   [ Final.parse Routes.overview
@@ -29,7 +24,7 @@ let routes menu_highlight projects container =
 let signed_in_network container =
   let open Network.Infix in
   (last ~init:Overview <$> event ()) >>= fun menu_highlight ->
-  (last ~init:[] <$> event ())       >>= fun projects ->
+  (last ~init:[]       <$> event ()) >>= fun projects ->
 
   initially (fun () ->
       plug_lwt projects (Api.Project.get_projects ())

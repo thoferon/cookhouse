@@ -6,21 +6,27 @@ open XmlHttpRequest
 open Utils
 
 type t =
-  { identifier : string
+  { identifier      : string
   ; source_location : string
+  ; source_plugin   : string
+  ; dependencies    : string list
   }
 
 let identifier { identifier } = identifier
 let source_location { source_location } = source_location
+let source_plugin { source_plugin } = source_plugin
+let dependencies { dependencies } = dependencies
 
 let parse_project_json obj =
   let identifier = obj |> member "identifier" |> to_string
   and source_location =
     obj |> member "source" |> member "location" |> to_string
+  and source_plugin =
+    obj |> member "source" |> member "plugin" |> to_string
+  and dependencies =
+    List.map to_string (obj |> member "dependencies" |> to_list)
   in
-  { identifier
-  ; source_location
-  }
+  { identifier; source_location; source_plugin; dependencies }
 
 let get_projects () =
   let extract { code; content } =
