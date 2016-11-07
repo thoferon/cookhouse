@@ -1,4 +1,23 @@
-module Cookhouse.Data.Job where
+module Cookhouse.Data.Job
+  ( Job(..)
+  , JobStatus(..)
+  , stringToJobStatus
+  , jobStatusToString
+  , JobType(..)
+  , stringToJobType
+  , jobTypeToString
+  , EntityID(..)
+  , JobField(..)
+  , jobDirectory
+  , getJob
+  , getJobsOfProject
+  , getPendingJobs
+  , getJobDependencies
+  , findJobs
+  , editJob
+  , createJob
+  , deleteJob
+  ) where
 
 import           Data.Aeson
 import           Data.Time
@@ -103,7 +122,7 @@ instance ToJSON Job where
 
 instance PureFromRow Job where
   pureFromRow = Job
-    <$> field <*> field <*> field <*> (fmap V.toList field) <*> field
+    <$> field <*> field <*> field <*> fmap V.toList field <*> field
 
 instance ToRow Job where
   toRow (Job{..}) =
@@ -159,6 +178,12 @@ getJobsOfProject identifier = findJobs $ JobProjectIdentifier :== identifier
 getPendingJobs :: MonadDataLayer m => m [Entity Job]
 getPendingJobs =
   findJobs $ JobStatus :== JobInQueue :|| JobStatus :== JobInProgress
+
+getJobDependencies :: MonadDataLayer m => EntityID Job -> m [Entity Job]
+getJobDependencies jobID = do
+  Job{..} <- getJob jobID
+  ensureAccess CAGetJob
+  getMany jobDependencies
 
 findJobs :: MonadDataLayer m => GenericModifier JobField -> m [Entity Job]
 findJobs mods = do

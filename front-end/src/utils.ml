@@ -1,3 +1,6 @@
+open Yojson.Basic
+open Yojson.Basic.Util
+
 module SessionInfo = struct
   (* TODO: Fallback on something else when localStorage is not available *)
 
@@ -49,3 +52,8 @@ let get_element = get_element_in Dom_html.document
 
 let add_class    el name = el##.classList##add    (Js.string name)
 let remove_class el name = el##.classList##remove (Js.string name)
+
+let parse_entity f obj =
+  let id   = string_of_int (obj |> member "id" |> to_int)
+  and data = obj |> member "data" in
+  f id data

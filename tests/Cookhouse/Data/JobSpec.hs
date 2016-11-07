@@ -87,6 +87,32 @@ spec = do
       test (singleCapability CAGetJob) emulator (getPendingJobs)
         `shouldBe` Right [Entity (JobID 42) job]
 
+  describe "getJobDependencies" $ do
+    let parentFields = [ integer 43, PureField "job_type" (Just "build")
+                       , PureField "job_status" (Just "success")
+                       , varchar "identifier", array "int4" "{42}"
+                       , timestamp' someTime ]
+
+        fakeSelect "jobs" _ mods
+          | wmodTemplate (selModWhere mods) == "id IN (?)"
+            && wmodValues (selModWhere mods) == [toField (42 :: Int)] =
+              return [jobFields]
+          | wmodTemplate (selModWhere mods) == "id = ?"
+            && wmodValues (selModWhere mods) == [toField (43 :: Int)] =
+              return [parentFields]
+        fakeSelect tbl cols mods = failEmulator $
+          "Can't handle SELECT: " ++ show (tbl, cols, mods)
+
+        emulator = mempty { deSelect = fakeSelect }
+
+    it "requires the capability CAGetJob" $ do
+      test anonymousCapability mempty getPendingJobs
+        `shouldBe` Left (AccessError CAGetJob)
+
+    it "returns the jobs on which the given job depends" $ do
+      test (singleCapability CAGetJob) emulator (getJobDependencies (JobID 43))
+        `shouldBe` Right [Entity (JobID 42) job]
+
   describe "editJob" $ do
     let fakeUpdate "jobs" [("status", action)] mods
           | action == toField ("rollbacked" :: String)

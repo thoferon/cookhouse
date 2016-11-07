@@ -69,3 +69,12 @@ spec = do
     it "returns Nothing if it is sound" $ do
       checkProjects [commonsProject, libAProject, libBProject, websiteProject]
         `shouldBe` Nothing
+
+  describe "getProject" $ do
+    it "returns the project if it exists" $ do
+      getProject [commonsProject] (projectIdentifier commonsProject)
+        `shouldBe` Right commonsProject
+
+    it "throws an error if the project is not found" $ do
+      getProject [commonsProject] (ProjectIdentifier "notfound")
+        `shouldBe` Left (IncorrectProjectIdentifierError "notfound")

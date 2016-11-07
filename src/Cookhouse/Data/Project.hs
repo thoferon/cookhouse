@@ -13,9 +13,12 @@ module Cookhouse.Data.Project
   , PluginConfig
   , SimpleValue(..)
   , checkProjects
+  , findProject
+  , getProject
   ) where
 
 import           Control.Monad
+import           Control.Monad.Except
 
 import           Data.Aeson
 import           Data.List
@@ -30,6 +33,7 @@ import           Web.PathPieces
 import           Database.PostgreSQL.Simple.ToField
 
 import           Cookhouse.Data.Types
+import           Cookhouse.Errors
 import           Cookhouse.Plugins.Types
 
 newtype ProjectIdentifier
@@ -236,3 +240,15 @@ checkProjects projects = either Just (const Nothing) $ do
     areDependenciesIn (pid:pids) identifiers
       | pid `elem` identifiers = areDependenciesIn pids identifiers
       | otherwise = Just pid
+
+findProject :: [Project] -> ProjectIdentifier -> Maybe Project
+findProject projects identifier =
+  find ((== identifier) . projectIdentifier) projects
+
+getProject :: MonadError CookhouseError m
+           => [Project] -> ProjectIdentifier -> m Project
+getProject projects identifier = do
+  case findProject projects identifier of
+    Nothing -> throwError $
+      IncorrectProjectIdentifierError $ unProjectIdentifier identifier
+    Just project -> return project

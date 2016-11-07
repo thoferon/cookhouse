@@ -1,17 +1,18 @@
+open Sharp.Ajax
 open Sharp.Core
 open Sharp.Event
-open Sharp.Vdom
 open Sharp.Router
-open Sharp.Ajax
+open Sharp.Vdom
 
 open Behaviour
 open Network
 
+open Job
 open Menu
-open Session
-open Project
-open Utils
 open Overview
+open Project
+open Session
+open Utils
 
 let routes menu_highlight projects container =
   [ Final.parse Routes.overview
@@ -19,6 +20,10 @@ let routes menu_highlight projects container =
   ; CVF.parse Routes.project
               (fun project_id _ ->
                 project_network menu_highlight projects project_id container)
+  ; CVCVF.parse Routes.job
+                (fun project_id job_id _ ->
+                  job_network menu_highlight projects project_id job_id
+                              container)
   ]
 
 let signed_in_network container =

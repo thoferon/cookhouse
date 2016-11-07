@@ -4,8 +4,6 @@ module Cookhouse.Errors where
 
 import GHC.Generics
 
-import Data.Binary
-
 import Network.HTTP.Types.Status
 
 import Cookhouse.Capabilities
@@ -28,8 +26,6 @@ data CookhouseError
   | CircularDependencyError String
   | IOError String
   deriving (Eq, Show, Generic)
-
-instance Binary CookhouseError
 
 class Show e => HTTPError e where
   errStatusAndMsg :: e -> (Status, String)

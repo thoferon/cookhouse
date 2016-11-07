@@ -23,6 +23,7 @@ import Cookhouse.Data.Types hiding (get)
 import Cookhouse.Environment
 import Cookhouse.Errors
 import Cookhouse.Logic.JobQueue
+import Cookhouse.Logic.JobResultOutput
 import Cookhouse.Plugins.Types
 import Cookhouse.Workers.Helpers
 
@@ -109,7 +110,10 @@ rollbackJob ent@(Entity jobID _) = do
 
 performJob :: JobPhase -> Entity Job -> WorkerM ()
 performJob phase (Entity jobID job@Job{..}) = do
-  project@Project{..} <- getProject jobProjectIdentifier
+  jrID <- inDataLayer $ createJobResult jobID phase
+
+  projects <- getProjects
+  project@Project{..} <- getProject projects jobProjectIdentifier
   let steps = case jobType of
         Build     -> projectBuildSteps
         PostBuild -> projectPostBuildSteps
@@ -123,13 +127,13 @@ performJob phase (Entity jobID job@Job{..}) = do
         Right True  -> return ()
     return Nothing
 
-  void $ inDataLayer $ createJobResult jobID mErr phase
+  inDataLayer $ markJobResultOver jrID $ fmap show mErr
 
 runStepPlugin :: Project -> Step -> JobPhase -> Job
               -> WorkerM (Either String Bool)
 runStepPlugin project step phase job = do
     dir <- getJobDirectory project job
-    let logFile = dir </> jobOutputFile phase job
+    let logFile = dir </> jobOutputFile phase (jobType job)
     fetchRepoIfMissing dir
     runStep dir logFile
 

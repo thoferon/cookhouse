@@ -102,19 +102,6 @@ getConfig = envConfig <$> getEnvironment
 getProjects :: HasEnvironment f => f [Project]
 getProjects = configProjects <$> getConfig
 
-findProject :: (HasEnvironment m) => ProjectIdentifier -> m (Maybe Project)
-findProject identifier =
-  find ((==identifier) . projectIdentifier) <$> getProjects
-
-getProject :: (HasEnvironment m, MonadError CookhouseError m)
-           => ProjectIdentifier -> m Project
-getProject identifier = do
-  mProject <- findProject identifier
-  case mProject of
-    Nothing -> throwError $
-      IncorrectProjectIdentifierError $ unProjectIdentifier identifier
-    Just project -> return project
-
 getProjectDirectory :: (HasEnvironment m, MonadIO m) => Project -> m FilePath
 getProjectDirectory (Project{..}) = do
   Config{..} <- getConfig

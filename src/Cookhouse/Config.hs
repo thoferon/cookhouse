@@ -8,6 +8,7 @@ module Cookhouse.Config
   ) where
 
 import           Data.Aeson (withObject)
+import           Data.Maybe
 import           Data.Pool
 import           Data.Yaml
 import qualified Data.ByteString.Char8 as BS
@@ -44,7 +45,7 @@ instance FromJSON Config where
       <*> db  .: "port"
       <*> db  .: "name"
       <*> obj .: "port"
-      <*> obj .: "cors-origins"
+      <*> (fromMaybe [] <$> obj .:? "cors-origins")
       <*> obj .: "build-directory"
       <*> obj .: "projects"
       <*> obj .: "max-job-count"

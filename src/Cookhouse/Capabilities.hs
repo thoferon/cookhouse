@@ -15,8 +15,6 @@ import GHC.Generics
 
 import Control.SafeAccess hiding (getCapabilities)
 
-import Data.Binary
-
 import Cookhouse.Plugins.Types
 
 data CookhouseAccess
@@ -27,9 +25,8 @@ data CookhouseAccess
   | CADeleteJob
   | CAGetJobResult
   | CACreateJobResult
+  | CAEditJobResult
   deriving (Eq, Show, Generic)
-
-instance Binary CookhouseAccess
 
 anonymousCapability :: Capability CookhouseAccess
 anonymousCapability = MkCapability $ \d -> case d of
@@ -54,4 +51,5 @@ jobWorkerCapability = MkCapability $ \d -> case d of
   CAGetJob          -> AccessGranted
   CAEditJob         -> AccessGranted
   CACreateJobResult -> AccessGranted
+  CAEditJobResult   -> AccessGranted
   _ -> AccessDeniedSoft

@@ -39,6 +39,7 @@ library
   exposed-modules:     Cookhouse
                        Cookhouse.Actions.Helpers
                        Cookhouse.Actions.JobActions
+                       Cookhouse.Actions.JobResultActions
                        Cookhouse.Actions.PluginActions
                        Cookhouse.Actions.ProjectActions
                        Cookhouse.Actions.SessionActions
@@ -55,6 +56,7 @@ library
                        Cookhouse.Errors
                        Cookhouse.Logic.JobGeneration
                        Cookhouse.Logic.JobQueue
+                       Cookhouse.Logic.JobResultOutput
                        Cookhouse.Middlewares.CORS
                        Cookhouse.Plugins.Source.Darcs
                        Cookhouse.Plugins.Step.Haskell
@@ -89,7 +91,6 @@ library
                      , yaml
                      , exceptions
                      , split
-                     , binary
 
 test-suite unit-tests
   type:                exitcode-stdio-1.0
@@ -103,6 +104,7 @@ test-suite unit-tests
                        Cookhouse.Data.ProjectSpec
                        Cookhouse.Logic.JobGenerationSpec
                        Cookhouse.Logic.JobQueueSpec
+                       Cookhouse.Logic.JobResultOutputSpec
                        Factory
                        SpecHelpers
 

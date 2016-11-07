@@ -6,7 +6,25 @@ import System.Directory
 
 import Cookhouse.Actions.Helpers
 import Cookhouse.Data.Job
+import Cookhouse.Data.JobResult
+import Cookhouse.Data.Project
 import Cookhouse.Logic.JobGeneration
+
+getJobAction :: AppSpockAction ()
+getJobAction =
+  runPOF (paramPOF "job_id") $ \jobID -> do
+    eRes <- inDataLayer $ (,,)
+      <$> getJob jobID
+      <*> getJobDependencies jobID
+      <*> getJobResultsFor jobID
+
+    withDataLayerResult eRes $ \(job, deps, results) -> do
+      setStatus ok200
+      json $ object
+        [ "job"          .= job
+        , "dependencies" .= deps
+        , "results"      .= results
+        ]
 
 generateJobsAction :: AppSpockAction ()
 generateJobsAction = runPOF (paramPOF "project_identifier") $ \identifier -> do
@@ -40,8 +58,8 @@ deleteJobAction = runPOF (paramPOF "job_id") $ \jobID -> do
     return job
 
   withDataLayerResult eJob $ \job -> do
-    mProject <- findProject $ jobProjectIdentifier job
-    case mProject of
+    projects <- getProjects
+    case findProject projects $ jobProjectIdentifier job of
       Nothing -> return ()
       Just project -> do
         dir <- getJobDirectory project job

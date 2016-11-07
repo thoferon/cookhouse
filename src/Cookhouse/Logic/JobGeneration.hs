@@ -43,7 +43,7 @@ createJobsBasedOnOrder (allIDs, lastIDs) typ (projects : dependentProjects) = do
 computeBuildOrder :: [Project] -> ProjectIdentifier
                   -> Either CookhouseError [[Project]]
 computeBuildOrder allProjects identifier = do
-    project <- findProject allProjects identifier
+    project <- getProject allProjects identifier
     go [project]
   where
     go :: [Project] -> Either CookhouseError [[Project]]
@@ -61,10 +61,3 @@ computeBuildOrder allProjects identifier = do
 reverseDependencies :: [Project] -> ProjectIdentifier -> [Project]
 reverseDependencies projects identifier =
   filter ((identifier `elem`) . projectDependencies) projects
-
-findProject :: [Project] -> ProjectIdentifier -> Either CookhouseError Project
-findProject projects identifier =
-  case find ((==identifier) . projectIdentifier) projects of
-    Nothing -> throwError $
-      IncorrectProjectIdentifierError $ unProjectIdentifier identifier
-    Just project -> return project

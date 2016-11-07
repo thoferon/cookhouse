@@ -29,7 +29,6 @@ import           Control.Applicative
 import           Control.Monad.Except
 
 import           Data.Aeson hiding (json)
-import           Data.List
 import           Data.Monoid
 import           Data.Time
 import qualified Data.Text as T
@@ -173,7 +172,7 @@ withProject :: ProjectIdentifier -> (Project -> AppSpockAction ())
             -> AppSpockAction ()
 withProject identifier cont = do
   projects <- getProjects
-  case find ((== identifier) . projectIdentifier) projects of
+  case findProject projects identifier of
     Nothing -> failAction $
       IncorrectProjectIdentifierError $ unProjectIdentifier identifier
     Just project -> cont project

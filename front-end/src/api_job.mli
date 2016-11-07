@@ -17,3 +17,4 @@ val dependencies : t -> string list
 
 val get_pending_jobs : unit   -> t list Lwt.t
 val get_project_jobs : string -> t list Lwt.t
+val get_job          : string -> (t * t list * Api_job_result.t list) Lwt.t

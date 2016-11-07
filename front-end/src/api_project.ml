@@ -17,7 +17,7 @@ let source_location { source_location } = source_location
 let source_plugin { source_plugin } = source_plugin
 let dependencies { dependencies } = dependencies
 
-let parse_project_json obj =
+let parse_project obj =
   let identifier = obj |> member "identifier" |> to_string
   and source_location =
     obj |> member "source" |> member "location" |> to_string
@@ -36,7 +36,7 @@ let get_projects () =
          try
            let obj = from_string content in
            let subs = obj |> member "projects" |> to_list in
-           let projects = List.map parse_project_json subs in
+           let projects = List.map parse_project subs in
            Lwt.return projects
          with | e -> Lwt.fail e
        end
