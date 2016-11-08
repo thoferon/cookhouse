@@ -192,6 +192,11 @@ dl {
 
 article {
   padding: .5em;
+
+  a,
+  a:hover {
+    color: $menu-slave-background;
+  }
 }
 
 @media screen and (min-width: 768px) {
