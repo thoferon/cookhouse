@@ -30,18 +30,19 @@ let type_text job = match typ job with
   | PostBuild -> "Post build"
 
 let job_minimal_view job =
-  tag "div" |* ("class", "grid-small-box " ^ status_class job)
-  |- (tag "header"
-      |- (tag "h2" |- text (project_id job))
-      |- (tag "span" |- text ("#" ^ Api.Job.identifier job)))
-  |- (tag "dl"
-      |- (tag "dt" |- text "Type")
-      |- (tag "dd" |- text (type_text job))
-      |- (tag "dt" |- text "Status")
-      |- (tag "dd" |- text (status_text job)))
-  |- (tag "a" |* ("href", CVCVF.to_fragment Routes.job (project_id job)
-                                            (Api.Job.identifier job))
-      |- text "More")
+  tag "div" |* ("class", "grid-small")
+  |- (tag "div" |* ("class", "box " ^ status_class job)
+      |- (tag "header"
+          |- (tag "h3" |- text (project_id job))
+          |- (tag "span" |- text ("#" ^ Api.Job.identifier job)))
+      |- (tag "dl"
+          |- (tag "dt" |- text "Type")
+          |- (tag "dd" |- text (type_text job))
+          |- (tag "dt" |- text "Status")
+          |- (tag "dd" |- text (status_text job)))
+      |- (tag "a" |* ("href", CVCVF.to_fragment Routes.job (project_id job)
+                                                (Api.Job.identifier job))
+          |- text "More"))
 
 let phase_text result = match phase result with
   | Run      -> "run"

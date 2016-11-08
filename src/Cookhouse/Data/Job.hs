@@ -20,6 +20,7 @@ module Cookhouse.Data.Job
   ) where
 
 import           Data.Aeson
+import           Data.Monoid
 import           Data.Time
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Vector as V
@@ -173,7 +174,8 @@ getJob jobID = do
   get jobID
 
 getJobsOfProject :: MonadDataLayer m => ProjectIdentifier -> m [Entity Job]
-getJobsOfProject identifier = findJobs $ JobProjectIdentifier :== identifier
+getJobsOfProject identifier =
+  findJobs $ JobProjectIdentifier :== identifier <> Desc JobCreationTime
 
 getPendingJobs :: MonadDataLayer m => m [Entity Job]
 getPendingJobs =

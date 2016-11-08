@@ -12,9 +12,9 @@ open Api.Plugin
 open Api.Session
 open Utils
 
-let session_network signout_link =
+let session_network () =
   let open Network.Infix in
-  click signout_link >>= fun signout_event ->
+  event () >>= fun signout_event ->
   event () >>= fun sinfo_event ->
 
   let open Behaviour.Infix in
@@ -33,7 +33,7 @@ let session_network signout_link =
               let _ = trigger sinfo_event None in
               ()
             )
-  >> return signed_in
+  >> return (signed_in, signout_event)
 
 let signin_network success_event signin_container =
   let open Network.Infix in
@@ -79,7 +79,7 @@ let signin_network success_event signin_container =
             tag "div" |* ("class", "overlay-box")
             |- (tag "h1" |- text "Authentication")
             |- (E.form (Sub.submit submission)
-                |- (tag "span"
+                |- (tag "span" |* ("class", "error-message")
                     |- text (match message with | None -> "" | Some s -> s))
                 |- (tag "label" |* ("for", "plugin")
                     |- text "Authentication with")

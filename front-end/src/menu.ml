@@ -12,7 +12,7 @@ type t =
   | Projects
   | Project of string
 
-let view highlight projects =
+let view highlight signout_event projects =
   let project_ids = List.map Api.Project.identifier projects in
   tag "ul"
   |- (tag "li"
@@ -33,6 +33,11 @@ let view highlight projects =
                                   then "highlight" else "")
                      |- text project_id)
                ) project_ids))
+  |- (tag "li"
+      |- (E.a (Sub.click signout_event (fun _ -> ()))
+          |* ("href", "#")
+          |- text "Sign out"))
 
-let menu_network highlight projects container =
-  vdom container highlight (fun highlight -> view highlight projects)
+let menu_network highlight signout_event projects container =
+  vdom container highlight
+       (fun highlight -> view highlight signout_event projects)

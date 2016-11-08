@@ -1,0 +1,12 @@
+$bar-background: #245;
+$menu-master-background: $bar-background + #222;
+$menu-slave-background: $menu-master-background + #222;
+
+$light-font: #ccc;
+$lighter-font: #ddd;
+
+$job-in-queue-border: #bde;
+$job-in-progress-border: #478;
+$job-success-border: #686;
+$job-failure-border: #b66;
+$job-rollbacked-border: #da6;

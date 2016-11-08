@@ -26,7 +26,7 @@ let routes menu_highlight projects container =
                               container)
   ]
 
-let signed_in_network container =
+let signed_in_network signout_event container =
   let open Network.Infix in
   (last ~init:Overview <$> event ()) >>= fun menu_highlight ->
   (last ~init:[]       <$> event ()) >>= fun projects ->
@@ -40,22 +40,21 @@ let signed_in_network container =
            | [] -> tag "span" |- text "Loading projects..."
            | projects ->
               tag "div"
-              |- E.nav (menu_network menu_highlight projects)
-              |- E.div (fun node ->
+              |- E.nav (menu_network menu_highlight signout_event projects)
+              |- E.article (fun node ->
                      router_ (routes menu_highlight projects node)
                    )
           )
 
-let main_network container signout_link =
+let main_network container =
   let open Network.Infix in
-  session_network signout_link >>= fun signed_in ->
+  session_network () >>= fun (signed_in, signout_event) ->
   vdom container signed_in (function
-        | true  -> E.div signed_in_network
+        | true  -> E.div (signed_in_network signout_event)
         | false -> E.div (signin_network signed_in) |* ("class", "overlay")
        )
 
 let () =
-  let container    = get_element "#container" in
-  let signout_link = get_element "#signout-link" in
+  let container = get_element "#container" in
   (* Never stop this network *)
-  let _ = start (main_network container signout_link) in ()
+  let _ = start (main_network container) in ()

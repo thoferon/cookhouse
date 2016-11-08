@@ -8,3 +8,6 @@ cabal\.sandbox\.config$
 ^front-end/configure$
 ^front-end/setup\.
 main\.js$
+main\.css$
+main\.css\.map$
+\.sass-cache$
