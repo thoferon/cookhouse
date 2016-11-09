@@ -24,7 +24,6 @@ import           Database.PostgreSQL.Simple.ToRow
 import           Cookhouse.Capabilities
 import           Cookhouse.Data.Job
 import           Cookhouse.Data.Types
-import           Cookhouse.Errors
 
 data JobPhase = Run | Rollback deriving (Eq, Show)
 

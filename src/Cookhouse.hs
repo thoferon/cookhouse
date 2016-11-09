@@ -1,5 +1,5 @@
 module Cookhouse
-  ( readConfigFromArgs
+  ( processOptions
   , mkEnvironment
   , webServer
   , triggerWorker
@@ -10,23 +10,39 @@ module Cookhouse
 import Control.Concurrent
 import Control.Monad
 
-import Data.Maybe
-
-import System.Environment
+import System.Posix.Process
+import System.Posix.User
 
 import Web.Spock.Simple
 
 import Cookhouse.App
 import Cookhouse.Config
 import Cookhouse.Environment
+import Cookhouse.Options
 import Cookhouse.Plugins.Types
 import Cookhouse.Workers.JobWorker
 import Cookhouse.Workers.TriggerWorker
 
-readConfigFromArgs :: IO Config
-readConfigFromArgs = do
-  args <- getArgs
-  readConfigOrDie $ maybe "config.yml" id $ listToMaybe args
+processOptions :: (Config -> IO ()) -> IO ()
+processOptions cont = do
+  opts   <- getOptions
+  config <- readConfigOrDie $ optConfigFile opts
+
+  case optGroup opts of
+    Nothing -> return ()
+    Just name -> do
+      groupEntry <- getGroupEntryForName name
+      setGroupID $ groupID groupEntry
+
+  case optUser opts of
+    Nothing -> return ()
+    Just name -> do
+      userEntry <- getUserEntryForName name
+      setUserID $ userID userEntry
+
+  if optDaemon opts
+    then void $ forkProcess $ createSession >> cont config
+    else cont config
 
 webServer :: Environment -> IO ()
 webServer env = do
@@ -38,9 +54,9 @@ webServer env = do
 defaultMain :: [AuthenticationPlugin] -> [TriggerPlugin] -> [SourcePlugin]
             -> [StepPlugin] -> IO ()
 defaultMain authPlugins sourcePlugins triggerPlugins stepPlugins = do
-  config <- readConfigFromArgs
-  let env = mkEnvironment config authPlugins sourcePlugins
-                          triggerPlugins stepPlugins
-  void $ forkOS $ triggerWorker env
-  void $ forkOS $ jobWorker     env
-  webServer env
+  processOptions $ \config -> do
+    let env = mkEnvironment config authPlugins sourcePlugins
+                            triggerPlugins stepPlugins
+    void $ forkOS $ triggerWorker env
+    void $ forkOS $ jobWorker     env
+    webServer env
