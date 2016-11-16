@@ -5,6 +5,7 @@ module Cookhouse.Workers.JobWorker
   ) where
 
 import Control.Concurrent
+import Control.Monad.Catch
 import Control.Monad.Except
 import Control.Monad.State
 
@@ -120,11 +121,14 @@ performJob phase (Entity jobID job@Job{..}) = do
 
   mErr <- flip catchError (return . Just) $ do
     forM_ steps $ \step@Step{..} -> do
-      eRes   <- runStepPlugin project step phase job
-      case eRes of
-        Left  err   -> throwError $ StepPluginError stepPlugin err
-        Right False -> throwError $ StepFailed      stepPlugin
-        Right True  -> return ()
+      let handler e =
+            throwError $ StepPluginError stepPlugin $ show (e :: SomeException)
+      flip catch handler $ do
+        eRes <- runStepPlugin project step phase job
+        case eRes of
+          Left  err   -> throwError $ StepPluginError stepPlugin err
+          Right False -> throwError $ StepFailed      stepPlugin
+          Right True  -> return ()
     return Nothing
 
   inDataLayer $ markJobResultOver jrID $ fmap show mErr
