@@ -1,27 +1,26 @@
 module Cookhouse.Actions.PluginActions where
 
-import Data.Aeson hiding (json)
-
-import Cookhouse.Actions.Helpers
+import Cookhouse.Actions.Types
+import Cookhouse.Environment
 import Cookhouse.Plugins.Types
 
-newtype AuthPluginDescription = AuthPluginDescription AuthenticationPlugin
+data Plugins
+  = Plugins [AuthenticationPlugin] [TriggerPlugin] [SourcePlugin] [StepPlugin]
 
-instance ToJSON AuthPluginDescription where
-  toJSON (AuthPluginDescription (AuthenticationPlugin{..})) = object
-    ["name" .= authPluginName, "title" .= authPluginTitle]
+instance ToJSON Plugins where
+  toJSON (Plugins authPlugins triggerPlugins sourcePlugins stepPlugins) =
+    let authDescrs = map (\AuthenticationPlugin{..} -> object
+                          ["name" .= authPluginName, "title" .= authPluginTitle]
+                         ) authPlugins
+    in object [ "authentication_plugins" .= authDescrs
+              , "trigger_plugins"        .= map triggerPluginName triggerPlugins
+              , "source_plugins"         .= map sourcePluginName  sourcePlugins
+              , "step_plugins"           .= map stepPluginName    stepPlugins
+              ]
 
-getPluginsAction :: AppSpockAction ()
-getPluginsAction = do
-  authPluginDescrs   <- map AuthPluginDescription <$> getAuthenticationPlugins
-  triggerPluginNames <- map triggerPluginName     <$> getTriggerPlugins
-  sourcePluginNames  <- map sourcePluginName      <$> getSourcePlugins
-  stepPluginNames    <- map stepPluginName        <$> getStepPlugins
-
-  setStatus ok200
-  json $ object
-    [ "authentication_plugins" .= authPluginDescrs
-    , "trigger_plugins"        .= triggerPluginNames
-    , "source_plugins"         .= sourcePluginNames
-    , "step_plugins"           .= stepPluginNames
-    ]
+getPluginsAction :: Action Plugins
+getPluginsAction = Plugins
+  <$> getAuthenticationPlugins
+  <*> getTriggerPlugins
+  <*> getSourcePlugins
+  <*> getStepPlugins

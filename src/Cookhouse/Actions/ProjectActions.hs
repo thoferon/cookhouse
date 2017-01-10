@@ -1,12 +1,11 @@
 module Cookhouse.Actions.ProjectActions where
 
-import Cookhouse.Actions.Helpers
+import Cookhouse.Actions.Types
 import Cookhouse.Capabilities
+import Cookhouse.Data.Project
+import Cookhouse.Environment
 
-getProjectsAction :: AppSpockAction ()
+getProjectsAction :: Action [Project]
 getProjectsAction = do
-  projects <- getProjects
-  eRes     <- inDataLayer $ ensureAccess CAGetProjects
-  withDataLayerResult eRes $ \_ -> do
-    setStatus ok200
-    json $ object [ "projects" .= projects ]
+  ensureAccess CAGetProjects
+  getProjects

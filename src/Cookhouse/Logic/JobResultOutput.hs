@@ -25,14 +25,13 @@ jobOutputFile phase jobType = case (phase, jobType) of
   (Run, PostBuild) -> "cookhouse-post-build.log"
   (Rollback, _)    -> "cookhouse-rollback.log"
 
-getJobResultOutputData :: MonadDataLayer m => [Project] -> EntityID JobResult
+getJobResultOutputData :: MonadDataLayer m s => [Project] -> EntityID JobResult
                        -> m (JobResult, Job, Project)
 getJobResultOutputData projects jobResultID = do
   jr@JobResult{..} <- getJobResult jobResultID
   job@Job{..}      <- getJob jrJobID
   project          <- getProject projects jobProjectIdentifier
   return (jr, job, project)
-
 
 getJobResultOutput :: (HasEnvironment m, MonadIO m) => JobResult -> Job
                    -> Project -> Integer -> m T.Text

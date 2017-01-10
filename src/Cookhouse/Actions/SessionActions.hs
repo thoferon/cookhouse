@@ -1,39 +1,45 @@
-module Cookhouse.Actions.SessionActions where
+module Cookhouse.Actions.SessionActions
+  ( module Cookhouse.Actions.SessionActions
+  , Token
+  ) where
 
 import Control.Monad.Except
 
-import Cookhouse.Actions.Helpers
+import Cookhouse.Actions.Types
+import Cookhouse.Environment
 import Cookhouse.Errors
 import Cookhouse.Plugins.Types
 
-signinAction :: AppSpockAction ()
-signinAction = do
-  let pof = (,,)
-        <$> paramPOF "plugin"
-        <*> paramPOF "username"
-        <*> paramPOF "password"
+data Credentials = Credentials
+  { plugin   :: String
+  , username :: String
+  , password :: String
+  } deriving Generic
 
-  runPOF pof $ \(name, username, password) -> do
-    mPlugin <- findAuthenticationPlugin name
-    case mPlugin of
-      Nothing -> failAction $ isInvalidError "plugin"
-      Just plugin -> do
-        eRes <- runPlugin $ authPluginSignin plugin username password
-        case eRes of
-          Left  err     -> failAction $ AuthenticationPluginError name err
-          Right Nothing -> failAction InvalidCredentials
-          Right (Just token) -> do
-            setStatus ok200
-            json $ object [ "token" .= token ]
+instance FromJSON Credentials
 
-signoutAction :: AppSpockAction ()
-signoutAction = do
-  mToken  <- getToken
-  mName   <- getAuthenticationPluginName
-  mPlugin <- maybe (return Nothing) findAuthenticationPlugin mName
+signinAction :: Credentials -> Action Token
+signinAction Credentials{..} = do
+  authPlugin <- getAuthenticationPlugin plugin
+  eRes <- runPlugin $ authPluginSignin authPlugin username password
+  case eRes of
+    Left  err      -> throwError $ AuthenticationPluginError plugin err
+    Right Nothing  -> throwError InvalidCredentials
+    Right (Just t) -> return t
 
-  case (mToken, mPlugin) of
-    (Just token, Just plugin) -> do
-      void $ runPlugin $ authPluginSignout plugin token
-      setStatus noContent204
-    _ -> setStatus badRequest400
+data AuthInfo = AuthInfo
+  { aiPlugin :: String
+  , aiToken  :: Token
+  }
+
+instance FromJSON AuthInfo where
+  parseJSON = withObject "AuthInfo" $ \obj ->
+    AuthInfo <$> obj .: "plugin" <*> obj .: "token"
+
+signoutAction :: AuthInfo -> Action NoContent
+signoutAction AuthInfo{..} = do
+  authPlugin <- getAuthenticationPlugin aiPlugin
+  eRes <- runPlugin $ authPluginSignout authPlugin aiToken
+  case eRes of
+    Left  err -> throwError $ AuthenticationPluginError aiPlugin err
+    Right ()  -> return NoContent

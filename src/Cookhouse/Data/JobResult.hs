@@ -1,7 +1,10 @@
+{-# LANGUAGE OverloadedLists #-}
+
 module Cookhouse.Data.JobResult
   ( JobResult(..)
   , JobPhase(..)
   , EntityID(..)
+  , JobResultProperty(..)
   , jobPhaseToString
   , stringToJobPhase
   , getJobResult
@@ -15,11 +18,7 @@ import           Data.Monoid
 import           Data.Time
 import qualified Data.ByteString.Char8 as BS
 
-import           Web.PathPieces
-
-import           Database.PostgreSQL.Simple
-import           Database.PostgreSQL.Simple.ToField
-import           Database.PostgreSQL.Simple.ToRow
+import           Servant.API
 
 import           Cookhouse.Capabilities
 import           Cookhouse.Data.Job
@@ -27,16 +26,18 @@ import           Cookhouse.Data.Types
 
 data JobPhase = Run | Rollback deriving (Eq, Show)
 
-instance PureFromField JobPhase where
-  pureFromField = do
-    ensureFieldType ["job_phase"]
-    bs <- ensureNotNull
-    case stringToJobPhase $ BS.unpack bs of
-      Just p  -> return p
-      Nothing -> fail $ "invalid job phase: " ++ show bs
+instance FromRow PSQL One JobPhase where
+  fromRow = pconsume `pbind` \(ColumnInfo{..}, Field{..}) ->
+    case (colInfoType, fieldValue) of
+      ("job_phase", Just bs) ->
+        case stringToJobPhase $ BS.unpack bs of
+        Just typ -> preturn typ
+        Nothing  -> pfail $ "invalid job phase: " ++ BS.unpack bs
+      (bs, Just _) -> pfail $ "invalid type for job phase: " ++ BS.unpack bs
+      (_, Nothing) -> pfail "unexpected NULL for job phase"
 
-instance ToField JobPhase where
-  toField = toField . jobPhaseToString
+instance ToRow PSQL One JobPhase where
+  toRow backend = toRow backend . jobPhaseToString
 
 instance ToJSON JobPhase where
   toJSON = toJSON . jobPhaseToString
@@ -58,7 +59,7 @@ data JobResult = JobResult
   , jrPhase     :: JobPhase
   , jrStartTime :: UTCTime
   , jrEndTime   :: Maybe UTCTime
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 instance ToJSON JobResult where
   toJSON JobResult{..} = object $
@@ -68,55 +69,58 @@ instance ToJSON JobResult where
     ] ++ maybe [] (pure . ("error"    .=)) jrError
       ++ maybe [] (pure . ("end_time" .=)) jrEndTime
 
-instance PureFromRow JobResult where
-  pureFromRow = JobResult <$> field <*> field <*> field <*> field <*> field
+instance FromRow PSQL Five JobResult
+instance ToRow   PSQL Five JobResult
 
-instance ToRow JobResult where
-  toRow JobResult{..} =
-    [ toField jrJobID
-    , toField jrError
-    , toField jrPhase
-    , toField jrStartTime
-    , toField jrEndTime
-    ]
-
-instance Storable JobResult where
+instance Storable PSQL One Five JobResult where
   data EntityID JobResult
-    = JobResultID { unJobResultID :: Int64 }
-    deriving (Eq, Show)
+    = JobResultID { unJobResultID :: Integer }
+    deriving (Eq, Show, Generic)
 
-  tableName  _ = "job_results"
-  fieldNames _ = ["job_id", "error", "phase", "start_time", "end_time"]
+  relation _ = Relation
+    { relationName      = "job_results"
+    , relationIDColumns = ["id"]
+    , relationColumns   = ["job_id", "error", "phase", "start_time", "end_time"]
+    }
 
-instance PureFromField (EntityID JobResult) where
-  pureFromField = fmap JobResultID pureFromField
-
-instance ToField (EntityID JobResult) where
-  toField = toField . unJobResultID
+instance FromRow PSQL One (EntityID JobResult)
+instance ToRow   PSQL One (EntityID JobResult)
 
 instance ToJSON (EntityID JobResult) where
   toJSON = toJSON . unJobResultID
 
-instance PathPiece (EntityID JobResult) where
-  toPathPiece = toPathPiece . unJobResultID
-  fromPathPiece = fmap JobResultID . fromPathPiece
+instance FromHttpApiData (EntityID JobResult) where
+  parseUrlPiece = fmap JobResultID . parseUrlPiece
 
-getJobResult :: MonadDataLayer m => EntityID JobResult -> m JobResult
+data JobResultProperty backend n a where
+  JobResultJobID     :: JobResultProperty PSQL One (EntityID Job)
+  JobResultError     :: JobResultProperty PSQL One (Maybe String)
+  JobResultStartTime :: JobResultProperty PSQL One UTCTime
+  JobResultEndTime   :: JobResultProperty PSQL One (Maybe UTCTime)
+
+instance Property PSQL JobResult JobResultProperty where
+  toColumns _ = \case
+    JobResultJobID     -> ["job_id"]
+    JobResultError     -> ["error"]
+    JobResultStartTime -> ["start_time"]
+    JobResultEndTime   -> ["end_time"]
+
+getJobResult :: MonadDataLayer m s => EntityID JobResult -> m JobResult
 getJobResult jobResultID = do
   ensureAccess CAGetJobResult
   get jobResultID
 
-getJobResultsFor :: MonadDataLayer m => EntityID Job -> m [Entity JobResult]
+getJobResultsFor :: MonadDataLayer m s => EntityID Job -> m [Entity JobResult]
 getJobResultsFor jobID = do
   ensureAccess CAGetJobResult
-  select $ "job_id" ==. jobID <> asc "start_time"
+  select (JobResultJobID ==. jobID) (asc JobResultStartTime)
 
-createJobResult :: MonadDataLayer m => EntityID Job -> JobPhase
+createJobResult :: MonadDataLayer m s => EntityID Job -> JobPhase
                 -> m (EntityID JobResult)
 createJobResult jobID phase = do
   ensureAccess CACreateJobResult
   now <- getTime
-  create JobResult
+  insert JobResult
     { jrJobID      = jobID
     , jrError      = Nothing
     , jrPhase      = phase
@@ -124,9 +128,9 @@ createJobResult jobID phase = do
     , jrEndTime    = Nothing
     }
 
-markJobResultOver :: MonadDataLayer m => EntityID JobResult -> Maybe String
+markJobResultOver :: MonadDataLayer m s => EntityID JobResult -> Maybe String
                   -> m ()
 markJobResultOver jrID mErr = do
   ensureAccess CAEditJobResult
   now <- getTime
-  update jrID ["end_time" =. Just now, "error" =. mErr]
+  update jrID $ JobResultEndTime =. Just now <> JobResultError =. mErr

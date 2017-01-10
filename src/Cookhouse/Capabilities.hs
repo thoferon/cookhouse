@@ -28,12 +28,11 @@ data CookhouseAccess
   | CAEditJobResult
   deriving (Eq, Show, Generic)
 
-anonymousCapability :: Capability CookhouseAccess
-anonymousCapability = MkCapability $ \d -> case d of
-  _ -> AccessDeniedSoft
+anonymousCapability :: Monad m => Capability m CookhouseAccess
+anonymousCapability = MkCapability $ \_ -> return AccessDeniedSoft
 
-toCookhouseCapability :: AccessLevel -> Capability CookhouseAccess
-toCookhouseCapability level = MkCapability $ \d -> case (level, d) of
+toCookhouseCapability :: Monad m => AccessLevel -> Capability m CookhouseAccess
+toCookhouseCapability level = MkCapability $ \d -> return $ case (level, d) of
   (Admin, _)          -> AccessGranted
   (User, CACreateJob) -> AccessGranted
   (_, CAGetJob)       -> AccessGranted
@@ -41,13 +40,13 @@ toCookhouseCapability level = MkCapability $ \d -> case (level, d) of
   (_, CAGetProjects)  -> AccessGranted
   _ -> AccessDeniedSoft
 
-triggerWorkerCapability :: Capability CookhouseAccess
-triggerWorkerCapability = MkCapability $ \d -> case d of
+triggerWorkerCapability :: Monad m => Capability m CookhouseAccess
+triggerWorkerCapability = MkCapability $ \d -> return $ case d of
   CACreateJob -> AccessGranted
   _ -> AccessDeniedSoft
 
-jobWorkerCapability :: Capability CookhouseAccess
-jobWorkerCapability = MkCapability $ \d -> case d of
+jobWorkerCapability :: Monad m => Capability m CookhouseAccess
+jobWorkerCapability = MkCapability $ \d -> return $ case d of
   CAGetJob          -> AccessGranted
   CAEditJob         -> AccessGranted
   CACreateJobResult -> AccessGranted

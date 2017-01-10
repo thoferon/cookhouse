@@ -13,57 +13,51 @@ projects =
   , websiteProject, independentProject, websiteWithIndependentProject
   ]
 
-fakeInsert :: ToRow p => Query -> [Query] -> Query -> [p] -> EmulatorM [PureRow]
-fakeInsert "jobs" _ "id" vals
-  -- for the single test
-  | [toRow (Job Build JobInQueue "website" [] someTime)]
-    == map toRow vals = return [[integer 42]]
-  | [toRow (Job PostBuild JobInQueue "website" [JobID 42] someTime)]
-    == map toRow vals = return [[integer 142]]
-  -- for the test with dependencies
-  | [toRow (Job Build JobInQueue "commons" [] someTime)]
-    == map toRow vals = return [[integer 42]]
-  | [toRow (Job Build JobInQueue "libA" [JobID 42] someTime)]
-    == map toRow vals = return [[integer 76]]
-  | [toRow (Job Build JobInQueue "libB" [JobID 42] someTime)]
-    == map toRow vals = return [[integer 89]]
-  | [toRow (Job Build JobInQueue "website" [JobID 76, JobID 89] someTime)]
-    == map toRow vals = return [[integer 137]]
-  | [toRow (Job PostBuild JobInQueue "commons" [JobID 137] someTime)]
-    == map toRow vals = return [[integer 242]]
-  | [toRow (Job PostBuild JobInQueue "libA" [JobID 242] someTime)]
-    == map toRow vals = return [[integer 476]]
-  | [toRow (Job PostBuild JobInQueue "libB" [JobID 242] someTime)]
-    == map toRow vals = return [[integer 589]]
-  | [toRow (Job PostBuild JobInQueue "website" [JobID 476, JobID 589] someTime)]
-    == map toRow vals = return [[integer 1337]]
-fakeInsert tbl cols ret vals = failEmulator $
-  "Can't handle INSERT query: " ++ show (tbl, cols, ret, map toRow vals)
-
 spec :: Spec
 spec = do
   describe "generateJobs" $ do
-    let cap      = singleCapability CACreateJob
-        emulator = mempty { deInsert = fakeInsert }
-        test'    = test cap emulator
+    let cap = singleCapability CACreateJob
 
     it "throws a CookhouseError if computeBuildOder fails" $ do
-      test' (generateJobs projects "incorrect") `shouldSatisfy` isLeft
+      test cap mempty (generateJobs projects "incorrect")
+        `shouldSatisfy` isLeft
 
     it "creates two jobs for a project with no reverse dependencies" $ do
-      let eIDs = test' (generateJobs projects "website")
+      let job42  = Job Build     JobInQueue "website" []         someTime
+          job142 = Job PostBuild JobInQueue "website" [JobID 42] someTime
+          mock = mockInsert job42 (JobID 42) >> mockInsert job142 (JobID 142)
+          eIDs = test cap mock (generateJobs projects "website")
       eIDs `shouldSatisfy` isRight
       let Right ids = eIDs
       ids `shouldContain` [JobID 42, JobID 142]
 
     it "creates a list of dependent jobs for a project with reverse\
        \ dependencies" $ do
-      let projects' = [commonsProject, libAProject, libBProject, websiteProject]
-          eIDs      = test' (generateJobs projects' "commons")
+      let mock = do
+            mockInsert (Job Build JobInQueue "commons" [] someTime)
+                       (JobID 1)
+            mockInsert (Job Build JobInQueue "libA" [JobID 1] someTime)
+                       (JobID 2)
+            mockInsert (Job Build JobInQueue "libB" [JobID 1] someTime)
+                       (JobID 3)
+            mockInsert (Job Build JobInQueue "website" [JobID 2, JobID 3]
+                            someTime) (JobID 4)
+            mockInsert (Job PostBuild JobInQueue "commons" [JobID 4] someTime)
+                       (JobID 5)
+            mockInsert (Job PostBuild JobInQueue "libA" [JobID 5] someTime)
+                       (JobID 6)
+            mockInsert (Job PostBuild JobInQueue "libB" [JobID 5] someTime)
+                       (JobID 7)
+            mockInsert (Job PostBuild JobInQueue "website" [JobID 6, JobID 7]
+                            someTime) (JobID 8)
+
+          projects' = [commonsProject, libAProject, libBProject, websiteProject]
+          eIDs      = test cap mock (generateJobs projects' "commons")
+
       eIDs `shouldSatisfy` isRight
       let Right ids = eIDs
-      ids `shouldContain` [ JobID 42, JobID 76, JobID 89, JobID 137, JobID 242
-                          , JobID 476, JobID 589, JobID 1337 ]
+      ids `shouldContain` [ JobID 1, JobID 2, JobID 3, JobID 4, JobID 5, JobID 6
+                          , JobID 7, JobID 8 ]
 
   describe "computeBuildOrder" $ do
     it "returns a single project if a project has no reverse dependencies" $ do

@@ -1,3 +1,5 @@
+{-# LANGUAGE OverloadedLists #-}
+
 module Cookhouse.Data.Job
   ( Job(..)
   , JobStatus(..)
@@ -7,9 +9,10 @@ module Cookhouse.Data.Job
   , stringToJobType
   , jobTypeToString
   , EntityID(..)
-  , JobField(..)
+  , JobProperty(..)
   , jobDirectory
   , getJob
+  , getManyJobs
   , getJobsOfProject
   , getPendingJobs
   , getJobDependencies
@@ -20,16 +23,10 @@ module Cookhouse.Data.Job
   ) where
 
 import           Data.Aeson
-import           Data.Monoid
 import           Data.Time
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.Vector as V
 
-import           Web.PathPieces
-
-import           Database.PostgreSQL.Simple
-import           Database.PostgreSQL.Simple.ToField
-import           Database.PostgreSQL.Simple.ToRow
+import           Servant.API
 
 import           Cookhouse.Capabilities
 import           Cookhouse.Data.Project
@@ -43,16 +40,21 @@ data JobStatus
   | JobRollbacked
   deriving (Eq, Show)
 
-instance PureFromField JobStatus where
-  pureFromField = do
-    ensureFieldType ["job_status"]
-    bs <- ensureNotNull
-    case stringToJobStatus $ BS.unpack bs of
-      Just typ -> return typ
-      Nothing -> fail $ "invalid job status: " ++ BS.unpack bs
+instance FromRow PSQL One JobStatus where
+  fromRow = pconsume `pbind` \(ColumnInfo{..}, Field{..}) ->
+    case (colInfoType, fieldValue) of
+      ("job_status", Just bs) ->
+        case stringToJobStatus $ BS.unpack bs of
+          Just typ -> preturn typ
+          Nothing  -> pfail $ "invalid job status: " ++ BS.unpack bs
+      (bs, Just _) -> pfail $ "invalid type for job status: " ++ BS.unpack bs
+      (_, Nothing) -> pfail "unexpected NULL for job status"
 
-instance ToField JobStatus where
-  toField = toField . jobStatusToString
+
+
+
+instance ToRow PSQL One JobStatus where
+  toRow backend = toRow backend . jobStatusToString
 
 instance ToJSON JobStatus where
   toJSON = toJSON . jobStatusToString
@@ -76,16 +78,18 @@ jobStatusToString typ = case typ of
 
 data JobType = Build | PostBuild deriving (Eq, Show)
 
-instance PureFromField JobType where
-  pureFromField = do
-    ensureFieldType ["job_type"]
-    bs <- ensureNotNull
-    case stringToJobType $ BS.unpack bs of
-      Just typ -> return typ
-      Nothing  -> fail $ "invalid job type: " ++ BS.unpack bs
+instance FromRow PSQL One JobType where
+  fromRow = pconsume `pbind` \(ColumnInfo{..}, Field{..}) ->
+    case (colInfoType, fieldValue) of
+      ("job_type", Just bs) ->
+        case stringToJobType $ BS.unpack bs of
+        Just typ -> preturn typ
+        Nothing  -> pfail $ "invalid job type: " ++ BS.unpack bs
+      (bs, Just _) -> pfail $ "invalid type for job type: " ++ BS.unpack bs
+      (_, Nothing) -> pfail "unexpected NULL for job type"
 
-instance ToField JobType where
-  toField = toField . jobTypeToString
+instance ToRow PSQL One JobType where
+  toRow backend = toRow backend . jobTypeToString
 
 instance ToJSON JobType where
   toJSON = toJSON . jobTypeToString
@@ -107,7 +111,7 @@ data Job = Job
   , jobProjectIdentifier :: ProjectIdentifier
   , jobDependencies      :: [EntityID Job]
   , jobCreationTime      :: UTCTime
-  } deriving (Eq, Show)
+  } deriving (Eq, Show, Generic)
 
 jobDirectory :: Job -> FilePath
 jobDirectory = formatTime defaultTimeLocale "%Y%m%d%H%M" . jobCreationTime
@@ -121,88 +125,79 @@ instance ToJSON Job where
     , "creation_time"      .= jobCreationTime
     ]
 
-instance PureFromRow Job where
-  pureFromRow = Job
-    <$> field <*> field <*> field <*> fmap V.toList field <*> field
+instance FromRow PSQL Five Job
+instance ToRow   PSQL Five Job
 
-instance ToRow Job where
-  toRow (Job{..}) =
-    [ toField jobType
-    , toField jobStatus
-    , toField jobProjectIdentifier
-    , toField $ V.fromList jobDependencies
-    , toField jobCreationTime
-    ]
+instance Storable PSQL One Five Job where
+  data EntityID Job = JobID { unJobID :: Integer } deriving (Eq, Show, Generic)
 
-instance Storable Job where
-  data EntityID Job = JobID { unJobID :: Int64 } deriving (Eq, Show)
+  relation  _ = Relation
+    { relationName      = "jobs"
+    , relationIDColumns = ["id"]
+    , relationColumns   = [ "type", "status", "project_identifier"
+                          , "dependencies", "creation_time" ]
+    }
 
-  tableName  _ = "jobs"
-  fieldNames _ = [ "type", "status", "project_identifier", "dependencies"
-                 , "creation_time"
-                 ]
-
-instance PureFromField (EntityID Job) where
-  pureFromField = JobID <$> pureFromField
-
-instance ToField (EntityID Job) where
-  toField = toField . unJobID
+instance FromRow PSQL One (EntityID Job)
+instance ToRow   PSQL One (EntityID Job)
 
 instance ToJSON (EntityID Job) where
   toJSON = toJSON . unJobID
 
-instance PathPiece (EntityID Job) where
-  fromPathPiece = fmap JobID . fromPathPiece
-  toPathPiece   = toPathPiece . unJobID
+instance FromHttpApiData (EntityID Job) where
+  parseUrlPiece = fmap JobID . parseUrlPiece
 
-data JobField a where
-  JobIDField           :: JobField (EntityID Job)
-  JobStatus            :: JobField JobStatus
-  JobProjectIdentifier :: JobField ProjectIdentifier
-  JobCreationTime      :: JobField UTCTime
+data JobProperty backend n a where
+  JobStatus            :: JobProperty PSQL One JobStatus
+  JobProjectIdentifier :: JobProperty PSQL One ProjectIdentifier
+  JobCreationTime      :: JobProperty PSQL One UTCTime
 
-instance IsField Job JobField where
-  toFieldName f = case f of
-    JobIDField           -> idFieldName (Proxy :: Proxy Job)
-    JobStatus            -> "status"
-    JobProjectIdentifier -> "project_identifier"
-    JobCreationTime      -> "creation_time"
+instance Property PSQL Job JobProperty where
+  toColumns _ = \case
+    JobStatus            -> ["status"]
+    JobProjectIdentifier -> ["project_identifier"]
+    JobCreationTime      -> ["creation_time"]
 
-getJob :: MonadDataLayer m => EntityID Job -> m Job
+getJob :: MonadDataLayer m s => EntityID Job -> m Job
 getJob jobID = do
   ensureAccess CAGetJob
   get jobID
 
-getJobsOfProject :: MonadDataLayer m => ProjectIdentifier -> m [Entity Job]
+getManyJobs :: MonadDataLayer m s => [EntityID Job] -> m [Entity Job]
+getManyJobs jobIDs =
+  findJobs (EntityID `inList` jobIDs) (desc JobCreationTime)
+
+getJobsOfProject :: MonadDataLayer m s => ProjectIdentifier -> m [Entity Job]
 getJobsOfProject identifier =
-  findJobs $ JobProjectIdentifier :== identifier <> Desc JobCreationTime
+  findJobs (JobProjectIdentifier ==. identifier) (desc JobCreationTime)
 
-getPendingJobs :: MonadDataLayer m => m [Entity Job]
+getPendingJobs :: MonadDataLayer m s => m [Entity Job]
 getPendingJobs =
-  findJobs $ JobStatus :== JobInQueue :|| JobStatus :== JobInProgress
+  findJobs (JobStatus ==. JobInQueue ||. JobStatus ==. JobInProgress) mempty
 
-getJobDependencies :: MonadDataLayer m => EntityID Job -> m [Entity Job]
+getJobDependencies :: MonadDataLayer m s => EntityID Job -> m [Entity Job]
 getJobDependencies jobID = do
   Job{..} <- getJob jobID
   ensureAccess CAGetJob
   getMany jobDependencies
 
-findJobs :: MonadDataLayer m => GenericModifier JobField -> m [Entity Job]
-findJobs mods = do
+findJobs :: MonadDataLayer m s => Condition PSQL Job -> SelectClauses PSQL Job
+         -> m [Entity Job]
+findJobs cond clauses = do
   ensureAccess CAGetJob
-  select mods
+  select cond clauses
 
-editJob :: MonadDataLayer m => EntityID Job -> JobStatus -> m ()
+editJob :: MonadDataLayer m s => EntityID Job -> JobStatus -> m ()
 editJob jobID status = do
   ensureAccess CAEditJob
-  update jobID ["status" =. status]
+  update jobID $ JobStatus =. status
 
-createJob :: MonadDataLayer m => JobType -> ProjectIdentifier -> [EntityID Job]
-          -> m (EntityID Job)
+createJob :: MonadDataLayer m s => JobType -> ProjectIdentifier
+          -> [EntityID Job] -> m (EntityID Job)
 createJob typ identifier deps = do
   ensureAccess CACreateJob
   now <- getTime
-  create Job
+  insert Job
     { jobType              = typ
     , jobStatus            = JobInQueue
     , jobProjectIdentifier = identifier
@@ -210,7 +205,7 @@ createJob typ identifier deps = do
     , jobCreationTime      = now
     }
 
-deleteJob :: MonadDataLayer m => EntityID Job -> m ()
+deleteJob :: MonadDataLayer m s => EntityID Job -> m ()
 deleteJob jobID = do
   ensureAccess CADeleteJob
   job <- getJob jobID

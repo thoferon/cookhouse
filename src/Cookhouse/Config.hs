@@ -16,7 +16,7 @@ import qualified Data.ByteString.Char8 as BS
 import           System.Exit
 import           System.IO
 
-import           Database.PostgreSQL.Simple
+import           Database.Seakale.PostgreSQL
 
 import           Network.URI hiding (path)
 
@@ -65,15 +65,15 @@ readConfigOrDie path = do
 
 createConn :: Config -> IO Connection
 createConn config = connect ConnectInfo
-  { connectHost     = configDatabaseHostname config
-  , connectUser     = configDatabaseUsername config
-  , connectPassword = configDatabasePassword config
-  , connectDatabase = configDatabaseName     config
-  , connectPort     = fromInteger $ configDatabasePort config
+  { ciHostname = configDatabaseHostname config
+  , ciUsername = configDatabaseUsername config
+  , ciPassword = configDatabasePassword config
+  , ciDatabase = configDatabaseName     config
+  , ciPort     = fromInteger $ configDatabasePort config
   }
 
 destroyConn :: Connection -> IO ()
-destroyConn = close
+destroyConn = disconnect
 
 mkConnectionPool :: Config -> IO (Pool Connection)
 mkConnectionPool config =

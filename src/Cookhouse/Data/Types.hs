@@ -3,35 +3,67 @@
 
 module Cookhouse.Data.Types
   ( module Cookhouse.Data.Types
-  , module Cookhouse.Data.Internal
+  , module Database.Seakale
+  , module Database.Seakale.PostgreSQL
+  , module Database.Seakale.PostgreSQL.FromRow
+  , module Database.Seakale.PostgreSQL.ToRow
+  , Generic
   , throwError
-  , Int64
   ) where
 
-import           GHC.Int
+import           GHC.Generics
 
 import           Control.Monad.Except
-import           Control.Monad.Identity
+import           Control.Monad.Trans.Free
 
 import           Data.Aeson
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.Text             as T
+import           Data.Time
+import qualified Data.HashMap.Strict as HM
 
-import           Database.PostgreSQL.Simple.Types
+import           Database.Seakale hiding (runQuery)
+import           Database.Seakale.PostgreSQL
+import           Database.Seakale.PostgreSQL.FromRow
+import           Database.Seakale.PostgreSQL.ToRow
 
 import           Cookhouse.Capabilities
-import           Cookhouse.Data.Internal
 import           Cookhouse.Errors
 
-type DataM
-  = SafeAccessT CookhouseAccess (ExceptT CookhouseError (TimeT DatabaseM))
+type SubDataM = ExceptT CookhouseError (TimeT Store)
+type DataM = SafeAccessT CookhouseAccess SubDataM
 
-instance (Storable a, ToJSON a, ToJSON (EntityID a)) => ToJSON (Entity a) where
-  toJSON = runIdentity . entityToJSONWith (Identity . toJSON)
+type CookhouseCapability = Capability SubDataM CookhouseAccess
 
-entityToJSONWith :: (Monad m, Storable a, ToJSON (EntityID a)) => (a -> m Value)
-                 -> Entity a -> m Value
-entityToJSONWith f (Entity i v) = do
-  let idKey = T.pack . BS.unpack . fromQuery . idFieldName . mkProxy $ v
-  jval <- f v
-  return $ object [idKey .= i, "data" .= jval]
+type MonadDataLayer m s
+  = ( MonadSafeAccess CookhouseAccess m s
+    , MonadError CookhouseError m
+    , MonadStore PSQL m
+    , MonadTime m
+    )
+
+instance (ToJSON a, ToJSON (EntityID a)) => ToJSON (Entity a) where
+  toJSON (Entity i v) =
+    let Object m = toJSON v
+    in Object $ HM.insert "id" (toJSON i) m
+
+newtype TimeF a = GetTime (UTCTime -> a)
+
+instance Functor TimeF where
+  fmap f (GetTime g) = GetTime (f . g)
+
+type TimeT = FreeT TimeF
+
+class Monad m => MonadTime m where
+  getTime :: m UTCTime
+
+instance Monad m => MonadTime (FreeT TimeF m) where
+  getTime = liftF $ GetTime id
+
+instance {-# OVERLAPPABLE #-} (MonadTime m, MonadTrans t, Monad (t m))
+         => MonadTime (t m) where
+  getTime = lift getTime
+
+runTimeT :: Monad m => UTCTime -> TimeT m a -> m a
+runTimeT now = iterT interpreter
+  where
+    interpreter :: TimeF (m a) -> m a
+    interpreter (GetTime f) = f now

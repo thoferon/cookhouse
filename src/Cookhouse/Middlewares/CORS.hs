@@ -1,8 +1,5 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Cookhouse.Middlewares.CORS
   ( corsMiddleware
-  , setCorsHeaders
   ) where
 
 import Data.List
@@ -12,22 +9,17 @@ import Network.HTTP.Types.Method
 import Network.HTTP.Types.Status
 import Network.Wai
 
-import Web.Spock.Simple
-
-import Cookhouse.Actions.Types
 import Cookhouse.Config
 
-corsMiddleware :: Config -> AppSpockM ()
-corsMiddleware config = case configCORSOrigins config of
-  [] -> return ()
-  _  -> middleware $ \app req ->
-    let corsHeaders = mkCorsHeaders config
-    in if requestMethod req == methodOptions
-         then ($ responseLBS status200 corsHeaders "")
-         else app req
-
-setCorsHeaders :: Config -> SpockAction a b c ()
-setCorsHeaders = mapM_ (uncurry setHeader) . mkCorsHeaders
+corsMiddleware :: Config -> Middleware
+corsMiddleware config app =
+  if null (configCORSOrigins config)
+    then app
+    else let corsHeaders = mkCorsHeaders config
+         in \req f ->
+           if requestMethod req == methodOptions
+             then f $ responseLBS status200 corsHeaders ""
+             else app req f
 
 mkCorsHeaders :: (IsString a, IsString b) => Config -> [(a, b)]
 mkCorsHeaders config = case configCORSOrigins config of

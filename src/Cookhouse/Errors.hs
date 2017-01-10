@@ -1,17 +1,17 @@
-{-# LANGUAGE DeriveGeneric #-}
-
 module Cookhouse.Errors where
 
-import GHC.Generics
+import GHC.Generics -- FIXME: huh ?!
 
-import Network.HTTP.Types.Status
+import Data.Aeson
+
+import Database.Seakale.Types
+
+import Servant
 
 import Cookhouse.Capabilities
 
 data CookhouseError
-  = SQLError String
-  | SQLRecordNotFoundError
-  | SQLInvalidFieldError String
+  = SQLError SeakaleError
   | ParamError String
   | ValidationError String String
   | PermissionError CookhouseAccess
@@ -27,41 +27,39 @@ data CookhouseError
   | IOError String
   deriving (Eq, Show, Generic)
 
+toServantError :: CookhouseError -> ServantErr
+toServantError err =
+  let (serr, msg) = errStatusAndMsg err
+  in serr { errBody = encode $ object [ "error" .= msg ] }
+
+-- FIXME: not needed anymore
 class Show e => HTTPError e where
-  errStatusAndMsg :: e -> (Status, String)
-  errStatusAndMsg _ = (internalServerError500, "Unknown error.")
+  errStatusAndMsg :: e -> (ServantErr, String)
+  errStatusAndMsg _ = (err500, "Unknown error.")
 
 instance HTTPError CookhouseError where
-  errStatusAndMsg err = case err of
-    SQLError _             -> (internalServerError500, "SQL Error.")
-    SQLRecordNotFoundError -> (notFound404, "Record not found.")
-    SQLInvalidFieldError _ -> (internalServerError500, "SQL Error.")
-    ParamError msg         -> (badRequest400, msg)
+  errStatusAndMsg = \case
+    SQLError EntityNotFoundError -> (err404, "Record not found.")
+    SQLError _ -> (err500, "SQL Error.")
+    ParamError msg -> (err400, msg)
     ValidationError f msg  ->
-      (badRequest400, "Error on field \"" ++ f ++ "\": " ++ msg ++ ".")
-    PermissionError _      -> (unauthorized401, "Permission denied.")
-    InvalidCredentials     -> (unauthorized401, "Invalid credentials.")
+      (err400, "Error on field \"" ++ f ++ "\": " ++ msg ++ ".")
+    PermissionError _ -> (err401, "Permission denied.")
+    InvalidCredentials -> (err401, "Invalid credentials.")
     AuthenticationPluginError name msg ->
-      ( unauthorized401
-      , "Authentication plugin \"" ++ name ++ "\" failed: " ++ msg )
+      (err401 , "Authentication plugin \"" ++ name ++ "\" failed: " ++ msg)
     TriggerPluginError name msg ->
-      ( internalServerError500
-      , "Trigger plugin \"" ++ name ++ "\" failed:" ++ msg )
+      (err500 , "Trigger plugin \"" ++ name ++ "\" failed:" ++ msg)
     SourcePluginError name msg ->
-      ( internalServerError500
-      , "Source plugin \"" ++ name ++ "\" failed:" ++ msg )
+      (err500 , "Source plugin \"" ++ name ++ "\" failed:" ++ msg)
     StepPluginError name msg ->
-      ( internalServerError500
-      , "Step plugin \"" ++ name ++ "\" failed:" ++ msg )
-    MissingPluginError name ->
-      (badRequest400 , "Incorrect plugin name: " ++ name)
+      (err500 , "Step plugin \"" ++ name ++ "\" failed:" ++ msg)
+    MissingPluginError name -> (err400 , "Incorrect plugin name: " ++ name)
     IncorrectProjectIdentifierError identifier ->
-      ( badRequest400
-      , "Incorrect project identifier: " ++ identifier )
+      (err400, "Incorrect project identifier: " ++ identifier)
     CircularDependencyError identifier ->
-      ( internalServerError500
-      , "Circular dependency around " ++ identifier ++ "." )
-    _ -> (internalServerError500, "Something went wrong.")
+      (err500, "Circular dependency around " ++ identifier ++ ".")
+    _ -> (err500, "Something went wrong.")
 
 cantBeBlankError :: String -> CookhouseError
 cantBeBlankError = flip ValidationError "Can't be blank"

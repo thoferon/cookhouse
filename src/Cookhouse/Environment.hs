@@ -1,11 +1,19 @@
+{-# LANGUAGE UndecidableInstances #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cookhouse.Environment where
 
 import Control.Monad.Except
+import Control.Monad.Reader
+import Control.Monad.Trans.Control
 
 import Data.List
+import Data.Pool
 
 import System.Directory
 import System.FilePath
+
+import Database.Seakale.PostgreSQL
 
 import Cookhouse.Config
 import Cookhouse.Data.Job
@@ -18,22 +26,25 @@ data Environment = Environment
   , envTriggerPlugins        :: [TriggerPlugin]
   , envSourcePlugins         :: [SourcePlugin]
   , envStepPlugins           :: [StepPlugin]
+  , envConnectionPool        :: Pool Connection
   , envConfig                :: Config
   }
 
-defaultEnvironment :: Config -> Environment
-defaultEnvironment config = Environment
+defaultEnvironment :: Config -> Pool Connection -> Environment
+defaultEnvironment config pool = Environment
   { envAuthenticationPlugins = []
   , envTriggerPlugins        = []
   , envSourcePlugins         = []
   , envStepPlugins           = []
+  , envConnectionPool        = pool
   , envConfig                = config
   }
 
-mkEnvironment :: Config -> [AuthenticationPlugin] -> [TriggerPlugin]
-              -> [SourcePlugin] -> [StepPlugin] -> Environment
-mkEnvironment config authPlugins triggerPlugins sourcePlugins stepPlugins =
-  (defaultEnvironment config)
+mkEnvironment :: Config -> Pool Connection -> [AuthenticationPlugin]
+              -> [TriggerPlugin] -> [SourcePlugin] -> [StepPlugin]
+              -> Environment
+mkEnvironment config pool authPlugins triggerPlugins sourcePlugins stepPlugins =
+  (defaultEnvironment config pool)
     { envAuthenticationPlugins = authPlugins
     , envTriggerPlugins        = triggerPlugins
     , envSourcePlugins         = sourcePlugins
@@ -42,6 +53,14 @@ mkEnvironment config authPlugins triggerPlugins sourcePlugins stepPlugins =
 
 class Functor f => HasEnvironment f where
   getEnvironment :: f Environment
+
+instance Monad m => HasEnvironment (ReaderT Environment m) where
+  getEnvironment = ask
+
+instance {-# OVERLAPPABLE #-} ( HasEnvironment m, Monad m, MonadTrans t
+                              , Functor (t m), Monad (t m) )
+  => HasEnvironment (t m) where
+  getEnvironment = lift getEnvironment
 
 getAuthenticationPlugins :: HasEnvironment f => f [AuthenticationPlugin]
 getAuthenticationPlugins = envAuthenticationPlugins <$> getEnvironment
@@ -95,6 +114,15 @@ getStepPlugin :: (HasEnvironment m, MonadError CookhouseError m)
 getStepPlugin name = do
   mPlugin <- findStepPlugin name
   maybe (throwError $ MissingPluginError name) return mPlugin
+
+getConnectionPool :: HasEnvironment f => f (Pool Connection)
+getConnectionPool = envConnectionPool <$> getEnvironment
+
+instance (HasEnvironment m, Monad m, MonadBaseControl IO m)
+  => HasConnection m where
+  withConn f = do
+    pool <- getConnectionPool
+    withResource pool f
 
 getConfig :: HasEnvironment f => f Config
 getConfig = envConfig <$> getEnvironment

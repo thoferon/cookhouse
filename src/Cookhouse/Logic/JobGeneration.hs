@@ -12,7 +12,7 @@ import Cookhouse.Data.Project
 import Cookhouse.Data.Types
 import Cookhouse.Errors
 
-generateJobs :: MonadDataLayer m => [Project] -> ProjectIdentifier
+generateJobs :: MonadDataLayer m s => [Project] -> ProjectIdentifier
              -> m [EntityID Job]
 generateJobs projects identifier = do
   order <- case computeBuildOrder projects identifier of
@@ -29,7 +29,7 @@ generateJobs projects identifier = do
 -- This function takes an accumulator of the form
 -- (all IDs of jobs generated so far, IDs generated at the last step)
 -- and returns a new accumulator of the same form.
-createJobsBasedOnOrder :: MonadDataLayer m => ([EntityID Job], [EntityID Job])
+createJobsBasedOnOrder :: MonadDataLayer m s => ([EntityID Job], [EntityID Job])
                        -> JobType -> [[Project]]
                        -> m ([EntityID Job], [EntityID Job])
 createJobsBasedOnOrder acc _ [] = return acc

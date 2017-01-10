@@ -28,9 +28,7 @@ import           Data.String
 import qualified Data.HashMap.Strict as M
 import qualified Data.Text           as T
 
-import           Web.PathPieces
-
-import           Database.PostgreSQL.Simple.ToField
+import           Servant.API
 
 import           Cookhouse.Data.Types
 import           Cookhouse.Errors
@@ -38,7 +36,10 @@ import           Cookhouse.Plugins.Types
 
 newtype ProjectIdentifier
   = ProjectIdentifier { unProjectIdentifier :: String }
-  deriving (Eq, IsString, PureFromField, ToField, ToJSON, FromJSON, PathPiece)
+  deriving (Eq, IsString, Generic, ToJSON, FromJSON, FromHttpApiData)
+
+instance FromRow PSQL One ProjectIdentifier
+instance ToRow   PSQL One ProjectIdentifier
 
 instance Show ProjectIdentifier where
   show = unProjectIdentifier

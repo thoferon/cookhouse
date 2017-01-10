@@ -27,9 +27,11 @@ import           Control.Applicative
 import           Control.Monad.Except
 
 import           Data.Aeson
-import qualified Data.ByteString.Char8 as BS
+import qualified Data.Text as T
 
 import           System.IO
+
+import           Servant.API
 
 {-
  - Generic types
@@ -100,10 +102,16 @@ getConfigString config key = case lookupConfigString config key of
  - Authentication plugins
  -}
 
-newtype Token = Token { unToken :: BS.ByteString }
+newtype Token = Token { unToken :: T.Text }
 
 instance ToJSON Token where
-  toJSON = toJSON . BS.unpack . unToken
+  toJSON = toJSON . unToken
+
+instance FromJSON Token where
+  parseJSON = fmap Token . parseJSON
+
+instance FromHttpApiData Token where
+  parseUrlPiece = Right . Token
 
 data AccessLevel = Admin | User | ReadOnly
 

@@ -1,7 +1,14 @@
-resolver: lts-6.1
+resolver: lts-7.14
 packages:
 - .
+- location: ../seakale
+  extra-dep: true
+- location: ../seakale/seakale-postgresql
+  extra-dep: true
+- location: ../seakale/seakale-tests
+  extra-dep: true
 extra-deps:
-- safe-access-0.2.1.2
+- safe-access-0.3.1.0
+- recursion-schemes-5
 flags: {}
 extra-package-dbs: []

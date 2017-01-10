@@ -55,9 +55,9 @@ manageJobs = do
 -- the process. The worker in charge has probably been killed.
 -- FIXME: Maybe it should store the process ID in the DB and check whether it's
 -- still running.
-cleanupRunningJobs :: MonadDataLayer m => m ()
+cleanupRunningJobs :: MonadDataLayer m s => m ()
 cleanupRunningJobs = do
-  ents <- findJobs $ JobStatus :== JobInProgress
+  ents <- findJobs (JobStatus ==. JobInProgress) mempty
   mapM_ (flip editJob JobInQueue . entityID) ents
 
 checkRunningJobs :: JobWorkerM ()
@@ -75,10 +75,9 @@ spawnNextJob = do
     Just job -> do
       mvar <- liftIO newEmptyMVar
       env  <- getEnvironment
-      pool <- lift getPool
 
       i <- liftIO $ forkOS $ do
-        eRes <- runWorker env jobWorkerCapability pool $ case job of
+        eRes <- runWorker env jobWorkerCapability $ case job of
           MetaJob Run      ent -> runJob      ent
           MetaJob Rollback ent -> rollbackJob ent
         case eRes of
@@ -162,8 +161,7 @@ runStepPlugin project step phase job = do
             Rollback -> stepPluginRollback plugin
 
       env  <- getEnvironment
-      pool <- getPool
       eRes <- liftIO $ withFile logFile WriteMode $ \h -> do
-        runWorker env jobWorkerCapability pool $
+        runWorker env jobWorkerCapability $
           runPlugin $ action dir h $ stepConfig step
       either throwError return eRes

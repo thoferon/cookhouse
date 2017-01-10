@@ -13,7 +13,7 @@ import Control.Monad
 import System.Posix.Process
 import System.Posix.User
 
-import Web.Spock.Simple
+import Network.Wai.Handler.Warp
 
 import Cookhouse.App
 import Cookhouse.Config
@@ -45,17 +45,14 @@ processOptions cont = do
     else cont config
 
 webServer :: Environment -> IO ()
-webServer env = do
-  let config = envConfig env
-  pool <- mkConnectionPool config
-  let spockConfig = defaultSpockCfg () (PCPool pool) env
-  runSpock (configPort config) $ spock spockConfig (app config)
+webServer env = run (configPort (envConfig env)) (app env)
 
 defaultMain :: [AuthenticationPlugin] -> [TriggerPlugin] -> [SourcePlugin]
             -> [StepPlugin] -> IO ()
 defaultMain authPlugins sourcePlugins triggerPlugins stepPlugins = do
   processOptions $ \config -> do
-    let env = mkEnvironment config authPlugins sourcePlugins
+    pool <- mkConnectionPool config
+    let env = mkEnvironment config pool authPlugins sourcePlugins
                             triggerPlugins stepPlugins
     void $ forkOS $ triggerWorker env
     void $ forkOS $ jobWorker     env

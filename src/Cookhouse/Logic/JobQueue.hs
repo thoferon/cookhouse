@@ -3,27 +3,25 @@ module Cookhouse.Logic.JobQueue
   , getNextJob
   ) where
 
-import Data.Monoid
-
 import Cookhouse.Data.Job
 import Cookhouse.Data.JobResult
 import Cookhouse.Data.Types
 
 data MetaJob = MetaJob JobPhase (Entity Job) deriving (Eq, Show)
 
-getNextJob :: MonadDataLayer m => m (Maybe MetaJob)
+getNextJob :: MonadDataLayer m s => m (Maybe MetaJob)
 getNextJob = getNextRollbackJob >>= maybe getNextRunJob (return . Just)
 
-getNextRollbackJob :: MonadDataLayer m => m (Maybe MetaJob)
+getNextRollbackJob :: MonadDataLayer m s => m (Maybe MetaJob)
 getNextRollbackJob = do
-    ents <- findJobs $ JobStatus :== JobFailure <> Limit 1
+    ents <- findJobs (JobStatus ==. JobFailure) (limit 1)
     case ents of
       [] -> return Nothing
       ent@(Entity _ Job{..}) : _ ->
         (Just . MetaJob Rollback) <$> findCandidate ent jobDependencies
 
   where
-    findCandidate :: MonadDataLayer m => Entity Job -> [EntityID Job]
+    findCandidate :: MonadDataLayer m s => Entity Job -> [EntityID Job]
                   -> m (Entity Job)
     findCandidate ent [] = return ent
     findCandidate ent (otherID : rest) = do
@@ -32,18 +30,18 @@ getNextRollbackJob = do
         then findCandidate (Entity otherID other) $ jobDependencies other
         else findCandidate ent rest
 
-getNextRunJob :: MonadDataLayer m => m (Maybe MetaJob)
+getNextRunJob :: MonadDataLayer m s => m (Maybe MetaJob)
 getNextRunJob = do
-    ents <- findJobs $ JobStatus :== JobInQueue <> Asc JobCreationTime
+    ents <- findJobs (JobStatus ==. JobInQueue) (asc JobCreationTime)
     findCandidate ents
 
   where
-    findCandidate :: MonadDataLayer m => [Entity Job] -> m (Maybe MetaJob)
+    findCandidate :: MonadDataLayer m s => [Entity Job] -> m (Maybe MetaJob)
     findCandidate [] = return Nothing
     findCandidate (ent : ents) = do
       let deps = jobDependencies $ entityVal ent
-      subs <- findJobs $
-        JobIDField `BelongsTo` deps :&& JobStatus :/= JobSuccess
+      subs <- findJobs
+        (EntityID `inList` deps &&. JobStatus /=. JobSuccess) mempty
       case subs of
         [] -> return $ Just $ MetaJob Run ent
         _  -> findCandidate ents

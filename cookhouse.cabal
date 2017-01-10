@@ -2,7 +2,7 @@
 -- documentation, see http://haskell.org/cabal/users-guide/
 
 name:                  cookhouse
-version:               1.0.0
+version:               0.1.0.0
 synopsis:              An extensible build system
 description:           An extensible build system with support for porject dependencies
 license:               BSD3
@@ -19,18 +19,10 @@ extra-source-files:    front-end/public/index.html
                      , front-end/public/stylesheets/main.css.map
                      , front-end/public/scripts/main.js
 
-flag debug_sql
-  description:         Print SQL queries to stderr
-  default:             False
-  manual:              True
-
 library
   hs-source-dirs:      src
   default-language:    Haskell2010
   ghc-options:         -Wall
-
-  if flag(debug_sql)
-    cpp-options:       -DDEBUG_SQL
 
   default-extensions:  ConstraintKinds
                        FlexibleContexts
@@ -41,9 +33,12 @@ library
                        GADTs
                        MultiParamTypeClasses
                        TupleSections
+                       DeriveGeneric
+                       LambdaCase
+                       DataKinds
+                       TypeOperators
 
   exposed-modules:     Cookhouse
-                       Cookhouse.Actions.Helpers
                        Cookhouse.Actions.JobActions
                        Cookhouse.Actions.JobResultActions
                        Cookhouse.Actions.PluginActions
@@ -53,7 +48,6 @@ library
                        Cookhouse.App
                        Cookhouse.Capabilities
                        Cookhouse.Config
-                       Cookhouse.Data.Internal
                        Cookhouse.Data.Job
                        Cookhouse.Data.JobResult
                        Cookhouse.Data.Project
@@ -69,13 +63,11 @@ library
                        Cookhouse.Plugins.Step.Haskell
                        Cookhouse.Plugins.Trigger.SourceChange
                        Cookhouse.Plugins.Types
-                       Cookhouse.Routes
                        Cookhouse.Workers.Helpers
                        Cookhouse.Workers.JobWorker
                        Cookhouse.Workers.TriggerWorker
 
-  build-depends:       base >=4.8 && <4.9
-                     , Spock
+  build-depends:       base >=4.8 && <4.10
                      , aeson
                      , bytestring
                      , directory
@@ -84,23 +76,24 @@ library
                      , http-types
                      , mtl
                      , network-uri
-                     , path-pieces
-                     , postgresql-simple
                      , process
                      , resource-pool
                      , safe-access
-                     , template-haskell
                      , text
                      , time
                      , unordered-containers
-                     , vector
-                     , wai
                      , yaml
                      , exceptions
                      , split
                      , unix
                      , optparse-applicative
-                     , exceptions
+                     , seakale
+                     , seakale-postgresql
+                     , servant
+                     , servant-server
+                     , warp
+                     , wai
+                     , monad-control
 
 test-suite unit-tests
   type:                exitcode-stdio-1.0
@@ -133,5 +126,7 @@ test-suite unit-tests
                      , safe-access
                      , free
                      , time
-                     , postgresql-simple
+                     , seakale
+                     , seakale-tests
+                     , seakale-postgresql
                      , bytestring
