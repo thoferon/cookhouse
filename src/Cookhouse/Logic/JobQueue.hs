@@ -1,7 +1,10 @@
 module Cookhouse.Logic.JobQueue
   ( MetaJob(..)
   , getNextJob
+  , abortUnneededJobs
   ) where
+
+import Control.Monad
 
 import Cookhouse.Data.Job
 import Cookhouse.Data.JobResult
@@ -45,3 +48,12 @@ getNextRunJob = do
       case subs of
         [] -> return $ Just $ MetaJob Run ent
         _  -> findCandidate ents
+
+abortUnneededJobs :: MonadDataLayer m s => m ()
+abortUnneededJobs = do
+  ents <- findJobs (JobStatus ==. JobInQueue) mempty
+  forM_ ents $ \(Entity jobID job) -> do
+    jobs <- getManyJobs $ jobDependencies job
+    let checkFailure = (`elem` [JobFailure, JobRollbacked, JobAborted])
+                       . jobStatus . entityVal
+    when (any checkFailure jobs) $ editJob jobID JobAborted

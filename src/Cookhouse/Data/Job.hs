@@ -38,6 +38,7 @@ data JobStatus
   | JobSuccess
   | JobFailure
   | JobRollbacked
+  | JobAborted
   deriving (Eq, Show)
 
 instance FromRow PSQL One JobStatus where
@@ -49,9 +50,6 @@ instance FromRow PSQL One JobStatus where
           Nothing  -> pfail $ "invalid job status: " ++ BS.unpack bs
       (bs, Just _) -> pfail $ "invalid type for job status: " ++ BS.unpack bs
       (_, Nothing) -> pfail "unexpected NULL for job status"
-
-
-
 
 instance ToRow PSQL One JobStatus where
   toRow backend = toRow backend . jobStatusToString
@@ -66,6 +64,7 @@ stringToJobStatus str = case str of
   "success"     -> Just JobSuccess
   "failure"     -> Just JobFailure
   "rollbacked"  -> Just JobRollbacked
+  "aborted"     -> Just JobAborted
   _             -> Nothing
 
 jobStatusToString :: JobStatus -> String
@@ -75,6 +74,7 @@ jobStatusToString typ = case typ of
   JobSuccess    -> "success"
   JobFailure    -> "failure"
   JobRollbacked -> "rollbacked"
+  JobAborted    -> "aborted"
 
 data JobType = Build | PostBuild deriving (Eq, Show)
 

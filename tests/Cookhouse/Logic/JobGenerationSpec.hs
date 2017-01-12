@@ -19,14 +19,14 @@ spec = do
     let cap = singleCapability CACreateJob
 
     it "throws a CookhouseError if computeBuildOder fails" $ do
-      test cap mempty (generateJobs projects "incorrect")
-        `shouldSatisfy` isLeft
+      eRes <- test cap mempty (generateJobs projects "incorrect")
+      eRes `shouldSatisfy` isLeft
 
     it "creates two jobs for a project with no reverse dependencies" $ do
       let job42  = Job Build     JobInQueue "website" []         someTime
           job142 = Job PostBuild JobInQueue "website" [JobID 42] someTime
           mock = mockInsert job42 (JobID 42) >> mockInsert job142 (JobID 142)
-          eIDs = test cap mock (generateJobs projects "website")
+      eIDs <- test cap mock (generateJobs projects "website")
       eIDs `shouldSatisfy` isRight
       let Right ids = eIDs
       ids `shouldContain` [JobID 42, JobID 142]
@@ -52,8 +52,8 @@ spec = do
                             someTime) (JobID 8)
 
           projects' = [commonsProject, libAProject, libBProject, websiteProject]
-          eIDs      = test cap mock (generateJobs projects' "commons")
 
+      eIDs <- test cap mock (generateJobs projects' "commons")
       eIDs `shouldSatisfy` isRight
       let Right ids = eIDs
       ids `shouldContain` [ JobID 1, JobID 2, JobID 3, JobID 4, JobID 5, JobID 6

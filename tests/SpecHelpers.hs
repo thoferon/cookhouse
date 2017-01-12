@@ -15,6 +15,7 @@ module SpecHelpers
   ) where
 
 import           Control.Applicative
+import           Control.Monad
 import           Control.Monad.Except
 import           Control.Monad.Free
 import           Control.Monad.State
@@ -42,20 +43,25 @@ import           Test.QuickCheck
 someTime :: UTCTime
 someTime = UTCTime { utctDay = ModifiedJulianDay 58000, utctDayTime = 40000 }
 
-testWithTime :: UTCTime -> CookhouseCapability -> Mock (StoreMock PSQL) ()
-             -> DataM a -> Either CookhouseError a
-testWithTime time cap mock action =
-  let eRes = runStore PSQL mock $ runTimeT time $ runExceptT $
+test' :: UTCTime -> CookhouseCapability -> Mock (StoreMock PSQL) ()
+      -> DataM a -> (Either CookhouseError a, Mock (StoreMock PSQL) ())
+test' time cap mock action =
+  let (eRes, mock') = runStore' PSQL mock $ runTimeT time $ runExceptT $
         runSafeAccessT action [cap]
-  in case eRes of
-       Left  err                   -> Left $ SQLError err
-       Right (Left  err)           -> Left err
-       Right (Right (Left access)) -> Left $ PermissionError access
-       Right (Right (Right res))   -> Right res
+      eRes' = case eRes of
+        Left  err                   -> Left $ SQLError err
+        Right (Left  err)           -> Left err
+        Right (Right (Left access)) -> Left $ PermissionError access
+        Right (Right (Right res))   -> Right res
+  in (eRes', mock')
 
 test :: CookhouseCapability -> Mock (StoreMock PSQL) () -> DataM a
-     -> Either CookhouseError a
-test = testWithTime someTime
+     -> IO (Either CookhouseError a)
+test cap mock action = do
+  let (eRes, mock') = test' someTime cap mock action
+  when (isRight eRes) $
+    ("mockConsumed", mockConsumed mock') `shouldBe` ("mockConsumed", True)
+  return eRes
 
 someCapabilities :: [CookhouseAccess] -> CookhouseCapability
 someCapabilities ds = MkCapability $ \d -> return $

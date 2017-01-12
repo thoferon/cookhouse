@@ -43,7 +43,7 @@ jobWorker = workerMain jobWorkerCapability $
 
 manageJobs :: JobWorkerM ()
 manageJobs = do
-  lift $ inDataLayer cleanupRunningJobs
+  lift $ inDataLayer $ cleanupRunningJobs >> abortUnneededJobs
   maxJobCount <- configMaxJobCount <$> getConfig
   forever $ do
     checkRunningJobs
@@ -100,13 +100,15 @@ runJob :: Entity Job -> WorkerM ()
 runJob ent@(Entity jobID _) = do
   inDataLayer $ editJob jobID JobInProgress
   eRes <- flip catchError (return . Left) $ Right <$> performJob Run ent
-  inDataLayer $ editJob jobID $
-    either (const JobFailure) (const JobSuccess) eRes
+  inDataLayer $ do
+    editJob jobID $ either (const JobFailure) (const JobSuccess) eRes
+    abortUnneededJobs
 
 rollbackJob :: Entity Job -> WorkerM ()
 rollbackJob ent@(Entity jobID _) = do
   inDataLayer $ editJob jobID JobRollbacked
   performJob Rollback ent
+  inDataLayer abortUnneededJobs
 
 performJob :: JobPhase -> Entity Job -> WorkerM ()
 performJob phase (Entity jobID job@Job{..}) = do
