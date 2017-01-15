@@ -2,12 +2,10 @@ module Cookhouse.Data.JobSpec where
 
 import Control.Monad
 
-import Data.Monoid
 import Data.Time
 
 import Cookhouse.Capabilities
 import Cookhouse.Data.Job
-import Cookhouse.Data.Project
 
 import SpecHelpers
 

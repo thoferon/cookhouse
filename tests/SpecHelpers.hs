@@ -14,31 +14,25 @@ module SpecHelpers
   , module Cookhouse.Errors
   ) where
 
-import           Control.Applicative
-import           Control.Monad
-import           Control.Monad.Except
-import           Control.Monad.Free
-import           Control.Monad.State
-import           Control.Monad.Trans.Free
-import           Control.SafeAccess
+import Control.Monad
+import Control.Monad.Except
+import Control.SafeAccess
 
-import           Data.Either
-import           Data.Maybe
-import           Data.Monoid
-import           Data.Time
-import qualified Data.ByteString.Char8 as BS
+import Data.Either
+import Data.Maybe
+import Data.Time
 
-import           Database.Seakale.PostgreSQL (PSQL)
-import           Database.Seakale.Tests.Store
+import Database.Seakale.PostgreSQL (PSQL)
+import Database.Seakale.Tests.Store
 
-import           Cookhouse.Capabilities
-import           Cookhouse.Data.Types hiding ( Property, runSelect, runSelectT
-                                             , runStore, runStoreT )
-import           Cookhouse.Errors
+import Cookhouse.Capabilities
+import Cookhouse.Data.Types hiding ( Property, runSelect, runSelectT
+                                   , runStore, runStoreT )
+import Cookhouse.Errors
 
-import           Test.Hspec hiding (after)
-import           Test.Hspec.QuickCheck
-import           Test.QuickCheck
+import Test.Hspec hiding (after)
+import Test.Hspec.QuickCheck
+import Test.QuickCheck
 
 someTime :: UTCTime
 someTime = UTCTime { utctDay = ModifiedJulianDay 58000, utctDayTime = 40000 }
@@ -60,7 +54,8 @@ test :: CookhouseCapability -> Mock (StoreMock PSQL) () -> DataM a
 test cap mock action = do
   let (eRes, mock') = test' someTime cap mock action
   when (isRight eRes) $
-    ("mockConsumed", mockConsumed mock') `shouldBe` ("mockConsumed", True)
+    ("mockConsumed", mockConsumed mock')
+      `shouldBe` ("mockConsumed" :: String, True)
   return eRes
 
 someCapabilities :: [CookhouseAccess] -> CookhouseCapability

@@ -25,6 +25,8 @@ type SubCookhouseAPI =
   :<|> "projects" :> Get '[JSON] [Project]
 
   :<|> "jobs" :> Capture "job_id" (EntityID Job) :> Get '[JSON] JobInfo
+  :<|> "jobs" :> Capture "job_id" (EntityID Job) :> "abort"
+              :> Post '[JSON] NoContent
   :<|> "jobs" :> Capture "job_id" (EntityID Job) :> Delete '[JSON] NoContent
   :<|> "jobs" :> "pending" :> Get '[JSON] [Entity Job]
   :<|> "projects" :> Capture "project_id" ProjectIdentifier :> "jobs"
@@ -48,6 +50,7 @@ subserver =
   :<|> getProjectsAction
 
   :<|> getJobAction
+  :<|> abortJobAction
   :<|> deleteJobAction
   :<|> getPendingJobsAction
   :<|> getJobsOfProjectAction

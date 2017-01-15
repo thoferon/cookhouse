@@ -131,7 +131,7 @@ getProjects :: HasEnvironment f => f [Project]
 getProjects = configProjects <$> getConfig
 
 getProjectDirectory :: (HasEnvironment m, MonadIO m) => Project -> m FilePath
-getProjectDirectory (Project{..}) = do
+getProjectDirectory Project{..} = do
   Config{..} <- getConfig
   let path = configBuildDirectory </> unProjectIdentifier projectIdentifier
   liftIO $ createDirectoryIfMissing True path

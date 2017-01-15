@@ -49,6 +49,7 @@ jobWorkerCapability :: Monad m => Capability m CookhouseAccess
 jobWorkerCapability = MkCapability $ \d -> return $ case d of
   CAGetJob          -> AccessGranted
   CAEditJob         -> AccessGranted
+  CADeleteJob       -> AccessGranted
   CACreateJobResult -> AccessGranted
   CAEditJobResult   -> AccessGranted
   _ -> AccessDeniedSoft

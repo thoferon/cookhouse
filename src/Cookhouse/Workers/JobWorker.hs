@@ -5,10 +5,12 @@ module Cookhouse.Workers.JobWorker
   ) where
 
 import Control.Concurrent
+import Control.Exception (AsyncException(..), fromException)
 import Control.Monad.Catch
 import Control.Monad.Except
 import Control.Monad.State
 
+import Data.List
 import Data.Maybe
 
 import System.Directory
@@ -23,6 +25,7 @@ import Cookhouse.Data.Project
 import Cookhouse.Data.Types hiding (get)
 import Cookhouse.Environment
 import Cookhouse.Errors
+import Cookhouse.Logic.JobCleanup
 import Cookhouse.Logic.JobQueue
 import Cookhouse.Logic.JobResultOutput
 import Cookhouse.Plugins.Types
@@ -32,7 +35,7 @@ import Cookhouse.Workers.Helpers
  - Worker management
  -}
 
-type JobWorkerM = StateT [(ThreadId, MVar ())] WorkerM
+type JobWorkerM = StateT [(ThreadId, EntityID Job, MVar ())] WorkerM
 
 instance HasEnvironment JobWorkerM where
   getEnvironment = lift getEnvironment
@@ -47,8 +50,11 @@ manageJobs = do
   maxJobCount <- configMaxJobCount <$> getConfig
   forever $ do
     checkRunningJobs
+    stopAbortedJobs
     threads <- get
-    when (length threads < maxJobCount) spawnNextJob
+    when (length threads < maxJobCount) $ do
+      mIdentifier <- spawnNextJob
+      maybe (return ()) clearOldJobs mIdentifier
     liftIO $ threadDelay $ 5 * 1000 * 1000 -- 5 seconds
 
 -- This function sets all jobs marked as in-progress to in-queue when we restart
@@ -63,34 +69,52 @@ cleanupRunningJobs = do
 checkRunningJobs :: JobWorkerM ()
 checkRunningJobs = do
   threads <- get
-  forM_ threads $ \(i, mvar) -> do
+  forM_ threads $ \(i, _, mvar) -> do
     finished <- liftIO $ isJust <$> tryReadMVar mvar
     when finished $ removeThread i
 
-spawnNextJob :: JobWorkerM ()
+stopAbortedJobs :: JobWorkerM ()
+stopAbortedJobs = do
+  threads <- get
+  let ids = map (\(_,i,_) -> i) threads
+  ents <- lift $ inDataLayer $
+    findJobs (EntityID `inList` ids &&. JobStatus ==. JobAborted) mempty
+  forM_ ents $ \(Entity jobID _) ->
+    case find (\(_,i,_) -> i == jobID) threads of
+      Nothing -> return () -- impossible
+      Just (tid, _, _) -> liftIO $ killThread tid
+
+clearOldJobs :: ProjectIdentifier -> JobWorkerM ()
+clearOldJobs identifier = do
+  ents <- lift $ inDataLayer $ deleteOldJobs identifier
+  removeOldJobDirectories identifier ents
+
+spawnNextJob :: JobWorkerM (Maybe ProjectIdentifier)
 spawnNextJob = do
   mJob <- lift $ inDataLayer getNextJob
   case mJob of
-    Nothing  -> return ()
-    Just job -> do
+    Nothing -> return Nothing
+    Just (MetaJob typ ent@(Entity jobID Job{..})) -> do
       mvar <- liftIO newEmptyMVar
       env  <- getEnvironment
 
       i <- liftIO $ forkOS $ do
-        eRes <- runWorker env jobWorkerCapability $ case job of
-          MetaJob Run      ent -> runJob      ent
-          MetaJob Rollback ent -> rollbackJob ent
+        eRes <- runWorker env jobWorkerCapability $ case typ of
+          Run      -> runJob      ent
+          Rollback -> rollbackJob ent
         case eRes of
           Left err -> hPutStrLn stderr $ "Job failed: " ++ show err
           Right () -> return ()
         putMVar mvar ()
-      addThread i mvar
+      addThread i jobID mvar
 
-addThread :: ThreadId -> MVar () -> JobWorkerM ()
-addThread i mvar = state $ \pairs -> ((), (i, mvar) : pairs)
+      return $ Just jobProjectIdentifier
+
+addThread :: ThreadId -> EntityID Job -> MVar () -> JobWorkerM ()
+addThread i jobID mvar = state $ \pairs -> ((), (i, jobID, mvar) : pairs)
 
 removeThread :: ThreadId -> JobWorkerM ()
-removeThread i = state $ \pairs -> ((), filter ((/= i) . fst) pairs)
+removeThread i = state $ \pairs -> ((), filter (\(i',_,_) -> i' /= i) pairs)
 
 {-
  - Proper job worker
@@ -122,8 +146,9 @@ performJob phase (Entity jobID job@Job{..}) = do
 
   mErr <- flip catchError (return . Just) $ do
     forM_ steps $ \step@Step{..} -> do
-      let handler e =
-            throwError $ StepPluginError stepPlugin $ show (e :: SomeException)
+      let handler e = case fromException e of
+            Just ThreadKilled -> throwM ThreadKilled
+            _ -> throwError $ StepPluginError stepPlugin $ show e
       flip catch handler $ do
         eRes <- runStepPlugin project step phase job
         case eRes of

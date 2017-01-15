@@ -1,5 +1,7 @@
 module Cookhouse.Actions.JobActions where
 
+import Control.Monad
+
 import Cookhouse.Actions.Types
 import Cookhouse.Data.Job
 import Cookhouse.Data.JobResult
@@ -39,3 +41,10 @@ generateJobsAction identifier = do
   projects <- getProjects
   ids <- generateJobs projects identifier
   getManyJobs ids
+
+abortJobAction :: EntityID Job -> Action NoContent
+abortJobAction jobID = do
+  job <- get jobID
+  when (jobStatus job `elem` [JobInQueue, JobInProgress]) $
+    editJob jobID JobAborted
+  return NoContent

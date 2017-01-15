@@ -54,6 +54,7 @@ library
                        Cookhouse.Data.Types
                        Cookhouse.Environment
                        Cookhouse.Errors
+                       Cookhouse.Logic.JobCleanup
                        Cookhouse.Logic.JobGeneration
                        Cookhouse.Logic.JobQueue
                        Cookhouse.Logic.JobResultOutput
@@ -105,6 +106,7 @@ test-suite unit-tests
   other-modules:       Cookhouse.Data.JobResultSpec
                        Cookhouse.Data.JobSpec
                        Cookhouse.Data.ProjectSpec
+                       Cookhouse.Logic.JobCleanupSpec
                        Cookhouse.Logic.JobGenerationSpec
                        Cookhouse.Logic.JobQueueSpec
                        Cookhouse.Logic.JobResultOutputSpec
