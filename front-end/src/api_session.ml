@@ -27,7 +27,13 @@ let signin plugin username password =
                                ~post_args "/api/signin") extract
 
 let signout () =
-  Lwt.bind (perform_raw_url ~override_method:`POST
-                            ~headers:(api_headers ())
-                            "/api/signout")
-           (fun _ -> Lwt.return ())
+  match SessionInfo.get () with
+  | None -> Lwt.return ()
+  | Some (token, plugin) ->
+     let post_args =
+       [ ("plugin", `String (Js.string plugin))
+       ; ("token",  `String (Js.string token))
+       ]
+     in Lwt.bind (perform_raw_url ~headers:(api_headers ())
+                                  ~post_args "/api/signout")
+                 (fun _ -> Lwt.return ())

@@ -125,7 +125,9 @@ runJob ent@(Entity jobID _) = do
   inDataLayer $ editJob jobID JobInProgress
   eRes <- flip catchError (return . Left) $ Right <$> performJob Run ent
   inDataLayer $ do
-    editJob jobID $ either (const JobFailure) (const JobSuccess) eRes
+    editJob jobID $ case eRes of
+      Right True -> JobSuccess
+      _ -> JobFailure
     abortUnneededJobs
 
 rollbackJob :: Entity Job -> WorkerM ()
@@ -134,7 +136,7 @@ rollbackJob ent@(Entity jobID _) = do
   performJob Rollback ent
   inDataLayer abortUnneededJobs
 
-performJob :: JobPhase -> Entity Job -> WorkerM ()
+performJob :: JobPhase -> Entity Job -> WorkerM Bool
 performJob phase (Entity jobID job@Job{..}) = do
   jrID <- inDataLayer $ createJobResult jobID phase
 
@@ -158,6 +160,7 @@ performJob phase (Entity jobID job@Job{..}) = do
     return Nothing
 
   inDataLayer $ markJobResultOver jrID $ fmap show mErr
+  return $ isNothing mErr
 
 runStepPlugin :: Project -> Step -> JobPhase -> Job
               -> WorkerM (Either String Bool)

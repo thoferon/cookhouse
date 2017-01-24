@@ -23,7 +23,7 @@ let view pending_jobs =
 let overview_network menu_highlight container =
   let open Network.Infix in
   (last ~init:[] <$> event ()) >>= fun pending_jobs ->
-  every 15. () >>= fun ticker ->
+  every 5. () >>= fun ticker ->
 
   initially (fun () ->
       let _ = trigger menu_highlight Overview in

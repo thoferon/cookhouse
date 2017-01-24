@@ -36,6 +36,7 @@ type SubCookhouseAPI =
                   :> PostCreated '[JSON] [Entity Job]
 
   :<|> "job_results" :> Capture "job_result_id" (EntityID JobResult)
+                     :> "output"
                      :> QueryParam "offset" Integer :> Get '[PlainText] T.Text
 
 type CookhouseAPI =

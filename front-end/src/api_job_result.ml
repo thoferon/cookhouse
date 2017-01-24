@@ -40,6 +40,6 @@ let get_job_result_output job_result_id offset =
     | _   -> Lwt.fail_with "Unknown error."
   in
   let path = "/api/job_results/" ^ job_result_id ^ "/output" in
-  Lwt.bind (perform_raw_url ~headers:(api_headers ())
+  Lwt.bind (perform_raw_url ~headers:(SessionInfo.http_headers ())
                             ~get_args:[("offset", string_of_int(offset))]
                             path) extract

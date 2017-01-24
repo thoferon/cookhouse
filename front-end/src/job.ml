@@ -53,7 +53,7 @@ let phase_text result = match phase result with
 let job_result_output_network result container =
   let open Network.Infix in
   (on ~init:"" ~f:(fun s s' -> s ^ s') <$> event ()) >>= fun output ->
-  every 10. () >>= fun tick ->
+  every 1. () >>= fun tick ->
 
   initially (fun () ->
       plug_lwt output (get_job_result_output

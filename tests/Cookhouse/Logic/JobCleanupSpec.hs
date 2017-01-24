@@ -1,9 +1,6 @@
 module Cookhouse.Logic.JobCleanupSpec where
 
 import Control.Monad.Except
-import Database.Seakale.Types
-
-import Control.Monad
 
 import Data.List
 import Data.Time
@@ -50,8 +47,8 @@ spec = do
         `shouldReturn` Right (reverse (take 25 ents'))
 
     it "doesn't fail if a job has already been deleted by dependencies" $ do
-      let ent@(Entity _ job) = ents !! 25
-          ent'  = ent { entityVal = job { jobDependencies = [JobID 25] } }
+      let ent@(Entity _ job') = ents !! 25
+          ent'  = ent { entityVal = job' { jobDependencies = [JobID 25] } }
           ents' = take 25 ents ++ [ent'] ++ drop 26 ents
           mock  = do
             mockSelect (JobProjectIdentifier ==. "identifier")

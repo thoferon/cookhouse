@@ -49,8 +49,11 @@ let actual_network menu_highlight project container =
   event () >>= fun build_request ->
   event () >>= fun build_accepted ->
 
+  every 5. () >>= fun ticker ->
   (last ~init:[] <$> event ()) >>= fun jobs ->
-  every 15. () >>= fun ticker ->
+  let fetch_jobs () =
+    plug_lwt jobs (Api.Job.get_project_jobs (identifier project))
+  in
 
   let open Behaviour.Infix in
   let build_enabled =
@@ -69,12 +72,8 @@ let actual_network menu_highlight project container =
               plug_lwt build_accepted (build_project (identifier project))
             )
 
-  >> initially (fun () ->
-      plug_lwt jobs (Api.Job.get_project_jobs (identifier project))
-    )
-  >> react_ ticker (fun () ->
-              plug_lwt jobs (Api.Job.get_project_jobs (identifier project))
-            )
+  >> initially fetch_jobs
+  >> react_ ticker fetch_jobs
 
   >> vdom container dat (fun (build_enabled, jobs) ->
             view project build_request build_enabled jobs
