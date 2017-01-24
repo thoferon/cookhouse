@@ -38,6 +38,9 @@ module SessionInfo = struct
        [("X-API-Token", token); ("X-API-Authentication-Plugin", plugin)]
 end
 
+let api_headers () =
+  ("Accept", "application/json") :: SessionInfo.http_headers ()
+
 let push_state title path =
   Dom_html.window##.history##pushState () (Js.string title)
                                        (Js.some (Js.string path))
@@ -52,8 +55,3 @@ let get_element = get_element_in Dom_html.document
 
 let add_class    el name = el##.classList##add    (Js.string name)
 let remove_class el name = el##.classList##remove (Js.string name)
-
-let parse_entity f obj =
-  let id   = string_of_int (obj |> member "id" |> to_int)
-  and data = obj |> member "data" in
-  f id data

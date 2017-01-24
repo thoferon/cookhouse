@@ -16,30 +16,28 @@ data Credentials = Credentials
   , password :: String
   } deriving Generic
 
-instance FromJSON Credentials
+instance FromForm Credentials
 
 signinAction :: Credentials -> Action Token
 signinAction Credentials{..} = do
   authPlugin <- getAuthenticationPlugin plugin
-  eRes <- runPlugin $ authPluginSignin authPlugin username password
+  eRes <- runPlugin $ authPluginSignin authPlugin username password []
   case eRes of
     Left  err      -> throwError $ AuthenticationPluginError plugin err
     Right Nothing  -> throwError InvalidCredentials
     Right (Just t) -> return t
 
 data AuthInfo = AuthInfo
-  { aiPlugin :: String
-  , aiToken  :: Token
-  }
+  { plugin :: String
+  , token  :: Token
+  } deriving Generic
 
-instance FromJSON AuthInfo where
-  parseJSON = withObject "AuthInfo" $ \obj ->
-    AuthInfo <$> obj .: "plugin" <*> obj .: "token"
+instance FromForm AuthInfo
 
 signoutAction :: AuthInfo -> Action NoContent
 signoutAction AuthInfo{..} = do
-  authPlugin <- getAuthenticationPlugin aiPlugin
-  eRes <- runPlugin $ authPluginSignout authPlugin aiToken
+  authPlugin <- getAuthenticationPlugin plugin
+  eRes <- runPlugin $ authPluginSignout authPlugin token []
   case eRes of
-    Left  err -> throwError $ AuthenticationPluginError aiPlugin err
+    Left  err -> throwError $ AuthenticationPluginError plugin err
     Right ()  -> return NoContent

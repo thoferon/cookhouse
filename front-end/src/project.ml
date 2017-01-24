@@ -67,7 +67,6 @@ let actual_network menu_highlight project container =
 
   >> react_ build_request (fun () ->
               plug_lwt build_accepted (build_project (identifier project))
-
             )
 
   >> initially (fun () ->

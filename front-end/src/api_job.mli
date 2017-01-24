@@ -8,6 +8,7 @@ type status =
   | Success
   | Failure
   | Rollbacked
+  | Aborted
 
 val identifier : t -> string
 val typ : t -> typ

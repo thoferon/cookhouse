@@ -17,6 +17,7 @@ let status_class job = match status job with
   | Success    -> "job-success"
   | Failure    -> "job-failure"
   | Rollbacked -> "job-rollbacked"
+  | Aborted    -> "job-aborted"
 
 let status_text job = match status job with
   | InQueue    -> "In queue"
@@ -24,6 +25,7 @@ let status_text job = match status job with
   | Success    -> "Succeeded"
   | Failure    -> "Failed"
   | Rollbacked -> "Rollbacked"
+  | Aborted    -> "Aborted"
 
 let type_text job = match typ job with
   | Build     -> "Build"

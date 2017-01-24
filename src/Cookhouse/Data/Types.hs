@@ -40,6 +40,14 @@ type MonadDataLayer m s
     , MonadTime m
     )
 
+instance MonadSeakaleBase backend m
+  => MonadSeakaleBase backend (SafeAccessT a m) where
+  getBackend = lift getBackend
+  throwSeakaleError = lift . throwSeakaleError
+  catchSeakaleError f handler = SafeAccessT $ \caps ->
+    catchSeakaleError (runSafeAccessT f caps)
+                      (flip runSafeAccessT caps . handler)
+
 instance (ToJSON a, ToJSON (EntityID a)) => ToJSON (Entity a) where
   toJSON (Entity i v) =
     let Object m = toJSON v
@@ -61,6 +69,14 @@ instance Monad m => MonadTime (FreeT TimeF m) where
 instance {-# OVERLAPPABLE #-} (MonadTime m, MonadTrans t, Monad (t m))
          => MonadTime (t m) where
   getTime = lift getTime
+
+instance MonadSeakaleBase backend m
+  => MonadSeakaleBase backend (TimeT m) where
+  getBackend = lift getBackend
+  throwSeakaleError = lift . throwSeakaleError
+  catchSeakaleError f handler = do
+    t <- getTime
+    lift $ catchSeakaleError (runTimeT t f) (runTimeT t . handler)
 
 runTimeT :: Monad m => UTCTime -> TimeT m a -> m a
 runTimeT now = iterT interpreter

@@ -159,6 +159,14 @@ dl {
   }
 }
 
+.job-aborted {
+  border-left: 5px solid $job-aborted-border;
+
+  h3 {
+    color: $job-aborted-border;
+  }
+}
+
 @media screen and (min-width: 600px) {
   .grid-small {
     width: 50%;

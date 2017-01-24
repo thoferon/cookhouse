@@ -18,8 +18,9 @@ import           Cookhouse.Environment
 import           Cookhouse.Middlewares.CORS
 
 type SubCookhouseAPI =
-  "signin" :> ReqBody '[JSON] Credentials :> Post '[JSON] Token
-  :<|> "signout" :> ReqBody '[JSON] AuthInfo :> PostNoContent '[JSON] NoContent
+  "signin" :> ReqBody '[FormUrlEncoded] Credentials :> Post '[JSON] Token
+  :<|> "signout" :> ReqBody '[FormUrlEncoded] AuthInfo
+                 :> PostNoContent '[JSON] NoContent
 
   :<|> "plugins"  :> Get '[JSON] Plugins
   :<|> "projects" :> Get '[JSON] [Project]

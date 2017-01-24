@@ -4,6 +4,7 @@ module Cookhouse.Actions.Types
   ( module Cookhouse.Actions.Types
   , module Servant.API
   , module GHC.Generics
+  , module Web.FormUrlEncoded
   , module Data.Aeson
   ) where
 
@@ -16,6 +17,8 @@ import Data.Aeson
 import Data.Time
 
 import Database.Seakale.PostgreSQL
+
+import Web.FormUrlEncoded
 
 import Servant
 import Servant.API
@@ -45,7 +48,7 @@ actionToSubAction mToken mName action = do
     (Just token, Just name) -> do
       plugin <- getAuthenticationPlugin name
       eRes <- runPlugin $ do
-        level <- authPluginGetAccessLevel plugin token
+        level <- authPluginGetAccessLevel plugin token []
         return $ toCookhouseCapability level
       either (throwError . AuthenticationPluginError name) return eRes
     _ -> return anonymousCapability

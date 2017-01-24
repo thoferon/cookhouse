@@ -14,12 +14,16 @@ module Cookhouse.Plugins.Types
   , Token(..)
   , AccessLevel(..)
   , AuthenticationPlugin(..)
+  , authPluginWithDefaultConfig
   -- * Source plugins
   , SourcePlugin(..)
+  , sourcePluginWithDefaultConfig
   -- * Trigger plugins
   , TriggerPlugin(..)
+  , triggerPluginWithDefaultConfig
   -- * Step plugins
   , StepPlugin(..)
+  , stepPluginWithDefaultConfig
   , emptyRollback
   ) where
 
@@ -98,6 +102,11 @@ getConfigString config key = case lookupConfigString config key of
     "Expected string for key " ++ show key ++ " in plugin config"
   Just s -> return s
 
+pluginConfigWithDefaults :: PluginConfig -> PluginConfig -> PluginConfig
+pluginConfigWithDefaults defs cfg =
+  let ks = map fst cfg
+  in cfg ++ filter ((`notElem` ks) . fst) defs
+
 {-
  - Authentication plugins
  -}
@@ -120,9 +129,21 @@ data AuthenticationPlugin = AuthenticationPlugin
   , authPluginTitle          :: String -- ^ Human-readable name of the plugin
   , authPluginSignin         :: String -- ^ Username
                              -> String -- ^ Password
+                             -> PluginConfig -- ^ Extra configuration
                              -> PluginM (Maybe Token)
-  , authPluginGetAccessLevel :: Token -> PluginM AccessLevel
-  , authPluginSignout        :: Token -> PluginM ()
+  , authPluginGetAccessLevel :: Token -> PluginConfig -> PluginM AccessLevel
+  , authPluginSignout        :: Token -> PluginConfig -> PluginM ()
+  }
+
+authPluginWithDefaultConfig :: AuthenticationPlugin -> PluginConfig
+                            -> AuthenticationPlugin
+authPluginWithDefaultConfig pl@AuthenticationPlugin{..} defs = pl
+  { authPluginSignin = \u p ->
+      authPluginSignin u p . pluginConfigWithDefaults defs
+  , authPluginGetAccessLevel = \t ->
+      authPluginGetAccessLevel t . pluginConfigWithDefaults defs
+  , authPluginSignout = \t ->
+      authPluginSignout t . pluginConfigWithDefaults defs
   }
 
 {-
@@ -139,6 +160,14 @@ data SourcePlugin = SourcePlugin
                       -> FilePath     -- ^ Local directory to pull the repo to
                       -> PluginConfig -- ^ Extra configuration
                       -> PluginM Bool -- ^ Whether there was something to pull
+  }
+
+sourcePluginWithDefaultConfig :: SourcePlugin -> PluginConfig -> SourcePlugin
+sourcePluginWithDefaultConfig pl@SourcePlugin{..} defs = pl
+  { sourcePluginFetch = \l p ->
+      sourcePluginFetch l p . pluginConfigWithDefaults defs
+  , sourcePluginPull = \l p ->
+      sourcePluginPull l p . pluginConfigWithDefaults defs
   }
 
 {-
@@ -158,6 +187,12 @@ data TriggerPlugin = TriggerPlugin
                        -> PluginM Bool
   }
 
+triggerPluginWithDefaultConfig :: TriggerPlugin -> PluginConfig -> TriggerPlugin
+triggerPluginWithDefaultConfig pl@TriggerPlugin{..} defs = pl
+  { triggerPluginCheck = \f g p ->
+      triggerPluginCheck f g p . pluginConfigWithDefaults defs
+  }
+
 {-
  - Step plugins
  -}
@@ -170,6 +205,13 @@ data StepPlugin = StepPlugin
                        -> PluginConfig -- ^ Extra configuration
                        -> PluginM Bool -- ^ Whether the step has succeeded
   , stepPluginRollback :: FilePath -> Handle -> PluginConfig -> PluginM Bool
+  }
+
+stepPluginWithDefaultConfig :: StepPlugin -> PluginConfig -> StepPlugin
+stepPluginWithDefaultConfig pl@StepPlugin{..} defs = pl
+  { stepPluginRun = \p h -> stepPluginRun p h . pluginConfigWithDefaults defs
+  , stepPluginRollback = \p h ->
+      stepPluginRollback p h . pluginConfigWithDefaults defs
   }
 
 emptyRollback :: FilePath -> Handle -> PluginConfig -> PluginM Bool

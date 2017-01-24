@@ -11,10 +11,9 @@ let signin plugin username password =
     | 200 ->
        begin
          try
-           let obj = from_string content in
-           let res = obj |> member "token" |> to_string in
-           Lwt.return (res, plugin)
-         with | e -> Lwt.fail e
+           let token = from_string content |> to_string in
+           Lwt.return (token, plugin)
+         with | e -> prerr_endline "Can't parse token"; Lwt.fail e
        end
     | 401 -> Lwt.fail_with "Wrong credentials."
     | _ -> Lwt.fail_with "Unknown error."
@@ -24,10 +23,11 @@ let signin plugin username password =
     ; ("username", `String (Js.string username))
     ; ("password", `String (Js.string password))
     ]
-  in Lwt.bind (perform_raw_url ~post_args "/api/signin") extract
+  in Lwt.bind (perform_raw_url ~headers:(api_headers ())
+                               ~post_args "/api/signin") extract
 
 let signout () =
   Lwt.bind (perform_raw_url ~override_method:`POST
-                            ~headers:(SessionInfo.http_headers ())
+                            ~headers:(api_headers ())
                             "/api/signout")
            (fun _ -> Lwt.return ())

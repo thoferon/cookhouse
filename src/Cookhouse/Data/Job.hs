@@ -22,6 +22,8 @@ module Cookhouse.Data.Job
   , deleteJob
   ) where
 
+import           Control.Monad
+
 import           Data.Aeson
 import           Data.Time
 import qualified Data.ByteString.Char8 as BS
@@ -114,7 +116,7 @@ data Job = Job
   } deriving (Eq, Show, Generic)
 
 jobDirectory :: Job -> FilePath
-jobDirectory = formatTime defaultTimeLocale "%Y%m%d%H%M" . jobCreationTime
+jobDirectory = formatTime defaultTimeLocale "%Y%m%d%H%M%S" . jobCreationTime
 
 instance ToJSON Job where
   toJSON (Job{..}) = object
@@ -209,5 +211,8 @@ deleteJob :: MonadDataLayer m s => EntityID Job -> m ()
 deleteJob jobID = do
   ensureAccess CADeleteJob
   job <- getJob jobID
-  mapM_ deleteJob $ jobDependencies job
+  forM_ (jobDependencies job) $ \depID ->
+    catchSeakaleError (deleteJob depID) $ \case
+      EntityNotFoundError -> return ()
+      e -> throwSeakaleError e
   delete jobID

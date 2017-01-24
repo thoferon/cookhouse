@@ -7,6 +7,8 @@ module SessionInfo : sig
   val http_headers : unit -> (string * string) list
 end
 
+val api_headers : unit -> (string * string) list
+
 val push_state : string -> string -> unit
 
 exception Element_not_found of string
@@ -18,5 +20,3 @@ val get_element_in : Dom_html.element Js.t -> string -> Dom_html.element Js.t
 
 val add_class : Dom_html.element Js.t -> string -> unit
 val remove_class : Dom_html.element Js.t -> string -> unit
-
-val parse_entity : (string -> json -> 'a) -> json -> 'a

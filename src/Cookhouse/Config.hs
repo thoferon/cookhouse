@@ -12,6 +12,8 @@ import           Data.Maybe
 import           Data.Pool
 import           Data.Yaml
 import qualified Data.ByteString.Char8 as BS
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
 
 import           System.Exit
 import           System.IO
@@ -33,10 +35,18 @@ data Config = Config
   , configBuildDirectory   :: FilePath
   , configProjects         :: [Project]
   , configMaxJobCount      :: Int
+  , configPlugins          :: [(String, PluginConfig)]
   }
 
 instance FromJSON Config where
   parseJSON = withObject "Config" $ \obj -> do
+    pluginConfigs <- do
+      mConfigs <- obj .:? "plugin-config"
+      return $ case mConfigs of
+        Nothing -> []
+        Just cfgs -> flip map (HM.toList cfgs) $ \(name, cfg) ->
+          ( T.unpack name
+          , map (\(k,v) -> (T.unpack k, v)) (HM.toList cfg) )
     db <- obj .: "database"
     Config
       <$> db  .: "username"
@@ -49,6 +59,7 @@ instance FromJSON Config where
       <*> obj .: "build-directory"
       <*> obj .: "projects"
       <*> obj .: "max-job-count"
+      <*> pure pluginConfigs
 
 readConfigOrDie :: FilePath -> IO Config
 readConfigOrDie path = do

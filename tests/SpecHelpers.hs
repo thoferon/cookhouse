@@ -14,7 +14,6 @@ module SpecHelpers
   , module Cookhouse.Errors
   ) where
 
-import Control.Monad
 import Control.Monad.Except
 import Control.SafeAccess
 

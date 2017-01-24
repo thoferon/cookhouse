@@ -1,4 +1,4 @@
-resolver: lts-7.14
+resolver: lts-7.15
 packages:
 - .
 - location: ../seakale
@@ -10,5 +10,8 @@ packages:
 extra-deps:
 - safe-access-0.3.1.0
 - recursion-schemes-5
+- servant-0.9.1.1
+- servant-server-0.9.1.1
+- http-api-data-0.3.2
 flags: {}
 extra-package-dbs: []

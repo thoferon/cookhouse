@@ -37,6 +37,7 @@ library
                        LambdaCase
                        DataKinds
                        TypeOperators
+                       DuplicateRecordFields
 
   exposed-modules:     Cookhouse
                        Cookhouse.Actions.JobActions
@@ -95,6 +96,7 @@ library
                      , warp
                      , wai
                      , monad-control
+                     , http-api-data
 
 test-suite unit-tests
   type:                exitcode-stdio-1.0

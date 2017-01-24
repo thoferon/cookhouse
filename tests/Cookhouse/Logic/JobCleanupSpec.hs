@@ -1,5 +1,8 @@
 module Cookhouse.Logic.JobCleanupSpec where
 
+import Control.Monad.Except
+import Database.Seakale.Types
+
 import Control.Monad
 
 import Data.List
@@ -45,3 +48,22 @@ spec = do
 
       test jobWorkerCapability mock (deleteOldJobs "identifier")
         `shouldReturn` Right (reverse (take 25 ents'))
+
+    it "doesn't fail if a job has already been deleted by dependencies" $ do
+      let ent@(Entity _ job) = ents !! 25
+          ent'  = ent { entityVal = job { jobDependencies = [JobID 25] } }
+          ents' = take 25 ents ++ [ent'] ++ drop 26 ents
+          mock  = do
+            mockSelect (JobProjectIdentifier ==. "identifier")
+                       (desc JobCreationTime) ents'
+            mockGet (JobID 25) (entityVal (head ents))
+            mockDelete (JobID 25)
+            mockGet (JobID 26) (entityVal ent')
+            mockFailingGet (JobID 25) EntityNotFoundError
+            mockDelete (JobID 26)
+            forM_ [27..30] $ \i -> do
+              mockGet (JobID i) (entityVal (ents `genericIndex` (i - 1)))
+              mockDelete (JobID i)
+
+      test jobWorkerCapability mock (deleteOldJobs "identifier")
+        `shouldReturn` Right (reverse (take 24 ents'))

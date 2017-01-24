@@ -3,6 +3,8 @@ open Yojson.Basic.Util
 
 open XmlHttpRequest
 
+open Utils
+
 type t =
   { trigger_plugins        : string list
   ; source_plugins         : string list
@@ -30,4 +32,4 @@ let get_plugins () =
         }
       in Lwt.return res
     with | e -> print_endline "Error fetching plugins"; Lwt.fail e
-  in Lwt.bind (perform_raw_url "/api/plugins") extract
+  in Lwt.bind (perform_raw_url ~headers:(api_headers ()) "/api/plugins") extract

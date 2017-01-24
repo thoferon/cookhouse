@@ -9,6 +9,7 @@ import Data.Function
 import Data.List
 
 import System.Directory
+import System.FilePath
 
 import Cookhouse.Data.Job
 import Cookhouse.Data.Project
@@ -20,7 +21,10 @@ deleteOldJobs :: MonadDataLayer m s => ProjectIdentifier -> m [Entity Job]
 deleteOldJobs identifier = do
   ents <- getJobsOfProject identifier
   let (newJobs, oldJobs) = filterJobsToDelete ents
-  mapM_ (deleteJob . entityID) oldJobs
+  forM_ oldJobs $ \(Entity jobID _) ->
+    catchSeakaleError (deleteJob jobID) $ \case
+      EntityNotFoundError -> return () -- Already deleted through dependencies
+      e -> throwSeakaleError e
   return newJobs
 
 filterJobsToDelete :: [Entity Job] -> ([Entity Job], [Entity Job])
@@ -44,4 +48,6 @@ removeOldJobDirectories identifier ents = do
   project  <- getProject projects identifier
   dir      <- getProjectDirectory project
   paths    <- liftIO $ listDirectory dir
-  liftIO $ mapM_ removeDirectoryRecursive $ paths \\ legitimatePaths
+  let toDelete =
+        filter (all (`elem` ("0123456789" :: String))) paths \\ legitimatePaths
+  liftIO $ mapM_ (removeDirectoryRecursive . (dir </>)) toDelete

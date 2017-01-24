@@ -7,6 +7,6 @@ val identifier : t -> string
 val phase : t -> phase
 val error : t -> string option
 
-val parse_job_result : string -> json -> t
+val parse_job_result : json -> t
 
 val get_job_result_output : string -> int -> string Lwt.t

@@ -44,12 +44,29 @@ mkEnvironment :: Config -> Pool Connection -> [AuthenticationPlugin]
               -> [TriggerPlugin] -> [SourcePlugin] -> [StepPlugin]
               -> Environment
 mkEnvironment config pool authPlugins triggerPlugins sourcePlugins stepPlugins =
-  (defaultEnvironment config pool)
-    { envAuthenticationPlugins = authPlugins
-    , envTriggerPlugins        = triggerPlugins
-    , envSourcePlugins         = sourcePlugins
-    , envStepPlugins           = stepPlugins
-    }
+    let authPlugins' =
+          helper authPluginName authPluginWithDefaultConfig authPlugins
+        triggerPlugins' =
+          helper triggerPluginName triggerPluginWithDefaultConfig triggerPlugins
+        sourcePlugins' =
+          helper sourcePluginName sourcePluginWithDefaultConfig sourcePlugins
+        stepPlugins' =
+          helper stepPluginName stepPluginWithDefaultConfig stepPlugins
+
+    in (defaultEnvironment config pool)
+         { envAuthenticationPlugins = authPlugins'
+         , envTriggerPlugins        = triggerPlugins'
+         , envSourcePlugins         = sourcePlugins'
+         , envStepPlugins           = stepPlugins'
+         }
+
+  where
+    helper :: (a -> String) -> (a -> PluginConfig -> a) -> [a] -> [a]
+    helper _ _ [] = []
+    helper getName setDefaults (pl : pls) =
+      case lookup (getName pl) (configPlugins config) of
+        Nothing  -> pl                 : helper getName setDefaults pls
+        Just cfg -> setDefaults pl cfg : helper getName setDefaults pls
 
 class Functor f => HasEnvironment f where
   getEnvironment :: f Environment
