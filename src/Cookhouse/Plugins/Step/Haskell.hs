@@ -22,10 +22,12 @@ plugin = StepPlugin
 compileProject :: FilePath -> Handle -> PluginConfig -> PluginM Bool
 compileProject dir handle config = do
   let test        = fromMaybe False $ lookupConfigBool config "test"
+      systemGHC   = fromMaybe False $ lookupConfigBool config "system-ghc"
       mGHCOptions = lookupConfigString config "ghc-options"
 
-      args = ["build", "--copy-bins"]
-             ++ if test then ["--test"] else []
+      args = (if systemGHC then ["--system-ghc"] else [])
+             ++ ["build"]
+             ++ (if test then ["--test"] else [])
              ++ maybe [] (\opts -> ["--ghc-options", opts]) mGHCOptions
 
   code <- liftIO $

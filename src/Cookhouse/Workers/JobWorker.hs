@@ -146,13 +146,16 @@ performJob phase (Entity jobID job@Job{..}) = do
         Build     -> projectBuildSteps
         PostBuild -> projectPostBuildSteps
 
+  dir <- prepareJobDirectory project job `catch` \e ->
+    throwError $ IOError $ show (e :: SomeException)
+
   mErr <- flip catchError (return . Just) $ do
     forM_ steps $ \step@Step{..} -> do
       let handler e = case fromException e of
             Just ThreadKilled -> throwM ThreadKilled
             _ -> throwError $ StepPluginError stepPlugin $ show e
       flip catch handler $ do
-        eRes <- runStepPlugin project step phase job
+        eRes <- runStepPlugin project step phase job dir
         case eRes of
           Left  err   -> throwError $ StepPluginError stepPlugin err
           Right False -> throwError $ StepFailed      stepPlugin
@@ -162,36 +165,59 @@ performJob phase (Entity jobID job@Job{..}) = do
   inDataLayer $ markJobResultOver jrID $ fmap show mErr
   return $ isNothing mErr
 
-runStepPlugin :: Project -> Step -> JobPhase -> Job
+runStepPlugin :: Project -> Step -> JobPhase -> Job -> FilePath
               -> WorkerM (Either String Bool)
-runStepPlugin project step phase job = do
-    dir <- getJobDirectory project job
-    let logFile = dir </> jobOutputFile phase (jobType job)
-    fetchRepoIfMissing dir
-    runStep dir logFile
+runStepPlugin project step phase job dir = do
+  let logFile = dir </> jobOutputFile phase (jobType job)
 
-  where
-    fetchRepoIfMissing :: FilePath -> WorkerM ()
-    fetchRepoIfMissing dir = do
-      check <- liftIO $ doesDirectoryExist dir
-      unless check $ do
-        let source = projectSource project
-        plugin <- getSourcePlugin $ sourcePlugin source
-        eRes <- liftIO $ runPlugin $
-          sourcePluginFetch plugin (sourceLocation source)
-                            dir (sourceConfig source)
-        either (throwError . SourcePluginError (sourcePlugin source))
-               return eRes
+  plugin <- getStepPlugin $ stepPlugin step
+  let action = case phase of
+        Run      -> stepPluginRun      plugin
+        Rollback -> stepPluginRollback plugin
 
-    runStep :: FilePath -> FilePath -> WorkerM (Either String Bool)
-    runStep dir logFile = do
-      plugin <- getStepPlugin $ stepPlugin step
-      let action = case phase of
-            Run      -> stepPluginRun      plugin
-            Rollback -> stepPluginRollback plugin
+  env  <- getEnvironment
+  eRes <- liftIO $ withFile logFile WriteMode $ \h -> do
+    runWorker env jobWorkerCapability $
+      runPlugin $ action dir h $ stepConfig step
+  either throwError return eRes
 
-      env  <- getEnvironment
-      eRes <- liftIO $ withFile logFile WriteMode $ \h -> do
-        runWorker env jobWorkerCapability $
-          runPlugin $ action dir h $ stepConfig step
-      either throwError return eRes
+prepareJobDirectory :: Project -> Job -> WorkerM FilePath
+prepareJobDirectory project job = do
+  dir <- getJobDirectory project job
+
+  check <- liftIO $ doesDirectoryExist dir
+  unless check $ do
+    let source = projectSource project
+    plugin <- getSourcePlugin $ sourcePlugin source
+    eRes <- liftIO $ runPlugin $
+      sourcePluginFetch plugin (sourceLocation source)
+                        dir (sourceConfig source)
+    either (throwError . SourcePluginError (sourcePlugin source))
+           return eRes
+
+    projects <- getProjects
+    unless (jobDependencies job == []) $ do
+      let vendorDir = dir </> "vendor"
+      liftIO $ createDirectoryIfMissing True vendorDir
+      forM_ (jobDependencies job) $ \depID -> do
+        depJob     <- inDataLayer $ getJob depID
+        depProject <- getProject projects (jobProjectIdentifier depJob)
+        depDir     <- getJobDirectory depProject depJob
+        liftIO $ copyDirectory depDir $
+          vendorDir </> unProjectIdentifier (jobProjectIdentifier depJob)
+
+  return dir
+
+copyDirectory :: FilePath -> FilePath -> IO ()
+copyDirectory src dest = do
+  createDirectoryIfMissing True dest
+  copyPermissions src dest
+
+  names <- listDirectory src
+  forM_ names $ \name -> do
+    let srcPath  = src  </> name
+        destPath = dest </> name
+    checkDir <- doesDirectoryExist srcPath
+    if checkDir
+      then copyDirectory srcPath destPath
+      else copyFileWithMetadata srcPath destPath
