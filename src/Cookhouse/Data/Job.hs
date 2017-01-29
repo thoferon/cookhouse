@@ -16,6 +16,7 @@ module Cookhouse.Data.Job
   , getJobsOfProject
   , getPendingJobs
   , getJobDependencies
+  , getLatestSucceededJob
   , findJobs
   , editJob
   , createJob
@@ -25,6 +26,7 @@ module Cookhouse.Data.Job
 import           Control.Monad
 
 import           Data.Aeson
+import           Data.Monoid
 import           Data.Time
 import qualified Data.ByteString.Char8 as BS
 
@@ -180,8 +182,17 @@ getPendingJobs =
 getJobDependencies :: MonadDataLayer m s => EntityID Job -> m [Entity Job]
 getJobDependencies jobID = do
   Job{..} <- getJob jobID
-  ensureAccess CAGetJob
   getMany jobDependencies
+
+getLatestSucceededJob :: MonadDataLayer m s => ProjectIdentifier
+                      -> m (Entity Job)
+getLatestSucceededJob identifier = do
+  jobs <- findJobs (JobProjectIdentifier ==. identifier
+                    &&. JobStatus ==. JobSuccess)
+                   (desc JobCreationTime <> limit 1)
+  case jobs of
+    [] -> throwSeakaleError EntityNotFoundError
+    job : _ -> return job
 
 findJobs :: MonadDataLayer m s => Condition PSQL Job -> SelectClauses PSQL Job
          -> m [Entity Job]

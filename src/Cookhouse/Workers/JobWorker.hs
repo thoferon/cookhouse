@@ -133,7 +133,7 @@ runJob ent@(Entity jobID _) = do
 rollbackJob :: Entity Job -> WorkerM ()
 rollbackJob ent@(Entity jobID _) = do
   inDataLayer $ editJob jobID JobRollbacked
-  performJob Rollback ent
+  void $ performJob Rollback ent
   inDataLayer abortUnneededJobs
 
 performJob :: JobPhase -> Entity Job -> WorkerM Bool
@@ -155,7 +155,7 @@ performJob phase (Entity jobID job@Job{..}) = do
             Just ThreadKilled -> throwM ThreadKilled
             _ -> throwError $ StepPluginError stepPlugin $ show e
       flip catch handler $ do
-        eRes <- runStepPlugin project step phase job dir
+        eRes <- runStepPlugin step phase job dir
         case eRes of
           Left  err   -> throwError $ StepPluginError stepPlugin err
           Right False -> throwError $ StepFailed      stepPlugin
@@ -165,9 +165,9 @@ performJob phase (Entity jobID job@Job{..}) = do
   inDataLayer $ markJobResultOver jrID $ fmap show mErr
   return $ isNothing mErr
 
-runStepPlugin :: Project -> Step -> JobPhase -> Job -> FilePath
+runStepPlugin :: Step -> JobPhase -> Job -> FilePath
               -> WorkerM (Either String Bool)
-runStepPlugin project step phase job dir = do
+runStepPlugin step phase job dir = do
   let logFile = dir </> jobOutputFile phase (jobType job)
 
   plugin <- getStepPlugin $ stepPlugin step
@@ -196,15 +196,20 @@ prepareJobDirectory project job = do
            return eRes
 
     projects <- getProjects
-    unless (jobDependencies job == []) $ do
-      let vendorDir = dir </> "vendor"
+    let vendorDir = dir </> "vendor"
+    unless (projectDependencies project == []) $
       liftIO $ createDirectoryIfMissing True vendorDir
-      forM_ (jobDependencies job) $ \depID -> do
-        depJob     <- inDataLayer $ getJob depID
-        depProject <- getProject projects (jobProjectIdentifier depJob)
-        depDir     <- getJobDirectory depProject depJob
-        liftIO $ copyDirectory depDir $
-          vendorDir </> unProjectIdentifier (jobProjectIdentifier depJob)
+
+    depJobs <- inDataLayer $ getManyJobs $ jobDependencies job
+    forM_ (projectDependencies project) $ \dep -> do
+      depJob <- inDataLayer $ fmap entityVal $
+        case find ((==dep) . jobProjectIdentifier . entityVal) depJobs of
+          Nothing -> getLatestSucceededJob dep
+          Just e  -> return e
+      depProject <- getProject projects dep
+      depDir     <- getJobDirectory depProject depJob
+      liftIO $ copyDirectory depDir $
+        vendorDir </> unProjectIdentifier (jobProjectIdentifier depJob)
 
   return dir
 
