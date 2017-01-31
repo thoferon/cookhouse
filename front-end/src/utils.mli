@@ -8,6 +8,7 @@ module SessionInfo : sig
 end
 
 val api_headers : unit -> (string * string) list
+val hard_signout : unit -> 'a
 
 val push_state : string -> string -> unit
 
@@ -20,3 +21,5 @@ val get_element_in : Dom_html.element Js.t -> string -> Dom_html.element Js.t
 
 val add_class : Dom_html.element Js.t -> string -> unit
 val remove_class : Dom_html.element Js.t -> string -> unit
+
+val human_readable_date : float -> string

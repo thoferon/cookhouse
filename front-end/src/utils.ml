@@ -41,6 +41,13 @@ end
 let api_headers () =
   ("Accept", "application/json") :: SessionInfo.http_headers ()
 
+let hard_signout () =
+  SessionInfo.clear ();
+  (match Url.Current.get () with
+   | None -> ()
+   | Some url -> Url.Current.set url);
+  failwith "Access denied."
+
 let push_state title path =
   Dom_html.window##.history##pushState () (Js.string title)
                                        (Js.some (Js.string path))
@@ -55,3 +62,7 @@ let get_element = get_element_in Dom_html.document
 
 let add_class    el name = el##.classList##add    (Js.string name)
 let remove_class el name = el##.classList##remove (Js.string name)
+
+let human_readable_date timestamp =
+  let date = new%js Js.date_fromTimeValue timestamp in
+  Js.to_string date##toLocaleString

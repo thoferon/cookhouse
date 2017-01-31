@@ -39,7 +39,7 @@ let get_projects () =
            Lwt.return projects
          with | e -> Lwt.fail e
        end
-    | 401 -> Lwt.fail_with "Access denied."
+    | 401 -> hard_signout ()
     | _ -> Lwt.fail_with "Unknown error."
   in Lwt.bind (perform_raw_url ~headers:(api_headers ())
                                "/api/projects") extract
@@ -48,7 +48,7 @@ let build_project identifier =
   let extract { code; content } =
     match code with
     | 201 -> Lwt.return ()
-    | 401 -> Lwt.fail_with "Access denied."
+    | 401 -> hard_signout ()
     | _ -> Lwt.fail_with "Unknown error."
   in
   let path = "/api/projects/" ^ identifier ^ "/build" in

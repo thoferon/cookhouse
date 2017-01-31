@@ -10,6 +10,7 @@ open Network
 open Api.Job
 open Api.JobResult
 open Menu
+open Utils
 
 let status_class job = match status job with
   | InQueue    -> "job-in-queue"
@@ -53,24 +54,37 @@ let phase_text result = match phase result with
 let job_result_output_network result container =
   let open Network.Infix in
   (on ~init:"" ~f:(fun s s' -> s ^ s') <$> event ()) >>= fun output ->
-  every 1. () >>= fun tick ->
+  every 2. () >>= fun tick ->
 
-  initially (fun () ->
-      plug_lwt output (get_job_result_output
-                         (Api.JobResult.identifier result) 0)
-    )
+  let fetch_output str =
+    plug_lwt output (get_job_result_output
+                       (Api.JobResult.identifier result)
+                       (String.length str))
+  in
+
+  initially (fun () -> fetch_output "")
   >> react tick output (fun _ str ->
-             plug_lwt output (get_job_result_output
-                                (Api.JobResult.identifier result)
-                                (String.length str))
+             match end_time result with
+             | None -> fetch_output str
+             | Some _ -> ()
            )
   >> vdom container output (fun output -> tag "pre" |- text output)
 
 let job_result_view show_phase result =
+  let subtitle =
+    "Start: " ^ human_readable_date (start_time result)
+    ^ (match end_time result with
+       | None -> "" | Some t -> ", end: " ^ human_readable_date t)
+    ^ (match error result with
+       | None -> "" | Some err -> ", error: " ^ err)
+  in
   tag "section"
-  |- (tag "h2" |- text (if show_phase
-                        then "Output (phase: " ^ phase_text result ^ ")"
-                        else "Output"))
+  |- (tag "header"
+      |- (tag "h2" |- text (if show_phase
+                            then "Output (phase: " ^ phase_text result ^ ")"
+                            else "Output"))
+      |- (tag "p" |* ("class", "subtitle")
+          |- text subtitle))
   |- E.div (job_result_output_network result)
 
 let view job deps results =
@@ -96,21 +110,20 @@ let view job deps results =
   |+ let show_phase = List.length results != 1 in
      List.map (job_result_view show_phase) results
 
-let actual_network job deps results container =
-  vdom_ container (fun () -> view job deps results)
-
 let job_network menu_highlight projects project_id job_id container =
   let open Network.Infix in
-  event () >>= fun job_data ->
+  (on ~init:None ~f:(fun _ dat -> Some dat) <$> event ()) >>= fun job_data ->
+  every 5. () >>= fun tick ->
 
   initially (fun () ->
       let _ = trigger menu_highlight (Project project_id) in
       plug_lwt job_data (get_job job_id)
     )
 
+  >> react_ tick (fun () -> plug_lwt job_data (get_job job_id))
+
   >> vdom container job_data
           (function
            | None -> tag "span" |- text "Loading job..."
-           | Some (job, deps, results) ->
-              E.div (actual_network job deps results)
+           | Some (job, deps, results) -> view job deps results
           )

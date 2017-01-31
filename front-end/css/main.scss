@@ -44,7 +44,7 @@ nav {
   h1, h2 {
     display: inline-block;
     color: $bar-background;
-    margin: .3em .5em .3em 0;
+    margin: .3em .5em 0 0;
   }
 
   h1 {
@@ -71,6 +71,13 @@ nav {
       display: inline;
       vertical-align: text-bottom;
       padding: 0 .5em;
+      font-size: 100%;
+    }
+
+    .subtitle {
+      color: grey;
+      font-size: .7em;
+      margin: -.2em .5em .5em 0;
     }
   }
 }

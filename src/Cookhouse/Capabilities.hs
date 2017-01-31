@@ -33,8 +33,9 @@ anonymousCapability = MkCapability $ \_ -> return AccessDeniedSoft
 
 toCookhouseCapability :: Monad m => AccessLevel -> Capability m CookhouseAccess
 toCookhouseCapability level = MkCapability $ \d -> return $ case (level, d) of
+  (None, _)           -> AccessDenied
   (Admin, _)          -> AccessGranted
-  (User, CACreateJob) -> AccessGranted
+  (_, CACreateJob)    -> AccessGranted
   (_, CAGetJob)       -> AccessGranted
   (_, CAGetJobResult) -> AccessGranted
   (_, CAGetProjects)  -> AccessGranted

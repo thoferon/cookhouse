@@ -122,7 +122,7 @@ instance FromJSON Token where
 instance FromHttpApiData Token where
   parseUrlPiece = Right . Token
 
-data AccessLevel = Admin | User | ReadOnly
+data AccessLevel = Admin | User | None
 
 data AuthenticationPlugin = AuthenticationPlugin
   { authPluginName           :: String

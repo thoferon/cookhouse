@@ -64,7 +64,7 @@ let extract_jobs { code; content } =
      let subs = from_string content |> to_list in
      let jobs = List.map parse_job subs in
      Lwt.return jobs
-  | 401 -> Lwt.fail_with "Access denied."
+  | 401 -> hard_signout ()
   | _ -> Lwt.fail_with "Unknown error."
 
 let get_pending_jobs () =
@@ -88,7 +88,7 @@ let get_job job_id =
                               (obj |> member "results" |> to_list)
        in
        Lwt.return (job, deps, results)
-    | 401 -> Lwt.fail_with "Access denied."
+    | 401 -> hard_signout ()
     | _ -> Lwt.fail_with "Unknown error."
   in
   let path = "/api/jobs/" ^ job_id in
