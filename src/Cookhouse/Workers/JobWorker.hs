@@ -123,11 +123,9 @@ removeThread i = state $ \pairs -> ((), filter (\(i',_,_) -> i' /= i) pairs)
 runJob :: Entity Job -> WorkerM ()
 runJob ent@(Entity jobID _) = do
   inDataLayer $ editJob jobID JobInProgress
-  eRes <- flip catchError (return . Left) $ Right <$> performJob Run ent
+  success <- performJob Run ent
   inDataLayer $ do
-    editJob jobID $ case eRes of
-      Right True -> JobSuccess
-      _ -> JobFailure
+    editJob jobID $ if success then JobSuccess else JobFailure
     abortUnneededJobs
 
 rollbackJob :: Entity Job -> WorkerM ()
@@ -138,18 +136,18 @@ rollbackJob ent@(Entity jobID _) = do
 
 performJob :: JobPhase -> Entity Job -> WorkerM Bool
 performJob phase (Entity jobID job@Job{..}) = do
-  jrID <- inDataLayer $ createJobResult jobID phase
-
-  projects <- getProjects
-  project@Project{..} <- getProject projects jobProjectIdentifier
-  let steps = case jobType of
-        Build     -> projectBuildSteps
-        PostBuild -> projectPostBuildSteps
-
-  dir <- prepareJobDirectory project job `catch` \e ->
-    throwError $ IOError $ show (e :: SomeException)
+  jobResultID <- inDataLayer $ createJobResult jobID phase
 
   mErr <- flip catchError (return . Just) $ do
+    projects <- getProjects
+    project@Project{..} <- getProject projects jobProjectIdentifier
+    let steps = case jobType of
+          Build     -> projectBuildSteps
+          PostBuild -> projectPostBuildSteps
+
+    dir <- prepareJobDirectory project job `catch` \e ->
+      throwError $ IOError $ show (e :: SomeException)
+
     forM_ steps $ \step@Step{..} -> do
       let handler e = case fromException e of
             Just ThreadKilled -> throwM ThreadKilled
@@ -160,9 +158,10 @@ performJob phase (Entity jobID job@Job{..}) = do
           Left  err   -> throwError $ StepPluginError stepPlugin err
           Right False -> throwError $ StepFailed      stepPlugin
           Right True  -> return ()
+
     return Nothing
 
-  inDataLayer $ markJobResultOver jrID $ fmap show mErr
+  inDataLayer $ markJobResultOver jobResultID $ fmap show mErr
   return $ isNothing mErr
 
 runStepPlugin :: Step -> JobPhase -> Job -> FilePath
@@ -176,7 +175,7 @@ runStepPlugin step phase job dir = do
         Rollback -> stepPluginRollback plugin
 
   env  <- getEnvironment
-  eRes <- liftIO $ withFile logFile WriteMode $ \h -> do
+  eRes <- liftIO $ withFile logFile AppendMode $ \h -> do
     runWorker env jobWorkerCapability $
       runPlugin $ action dir h $ stepConfig step
   either throwError return eRes

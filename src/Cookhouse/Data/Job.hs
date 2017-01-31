@@ -168,12 +168,11 @@ getJob jobID = do
   get jobID
 
 getManyJobs :: MonadDataLayer m s => [EntityID Job] -> m [Entity Job]
-getManyJobs jobIDs =
-  findJobs (EntityID `inList` jobIDs) (desc JobCreationTime)
+getManyJobs jobIDs = findJobs (EntityID `inList` jobIDs) mempty
 
 getJobsOfProject :: MonadDataLayer m s => ProjectIdentifier -> m [Entity Job]
 getJobsOfProject identifier =
-  findJobs (JobProjectIdentifier ==. identifier) (desc JobCreationTime)
+  findJobs (JobProjectIdentifier ==. identifier) mempty
 
 getPendingJobs :: MonadDataLayer m s => m [Entity Job]
 getPendingJobs =
@@ -198,7 +197,7 @@ findJobs :: MonadDataLayer m s => Condition PSQL Job -> SelectClauses PSQL Job
          -> m [Entity Job]
 findJobs cond clauses = do
   ensureAccess CAGetJob
-  select cond clauses
+  select cond (desc JobCreationTime <> desc EntityID <> clauses)
 
 editJob :: MonadDataLayer m s => EntityID Job -> JobStatus -> m ()
 editJob jobID status = do

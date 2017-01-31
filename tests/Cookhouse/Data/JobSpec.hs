@@ -2,6 +2,7 @@ module Cookhouse.Data.JobSpec where
 
 import Control.Monad
 
+import Data.Monoid
 import Data.Time
 
 import Cookhouse.Capabilities
@@ -42,7 +43,8 @@ spec = do
 
     it "gets the jobs with the given project identifier" $ do
       let mock = mockSelect (JobProjectIdentifier ==. "identifier")
-                            (desc JobCreationTime) [Entity (JobID 42) job]
+                            (desc JobCreationTime <> desc EntityID)
+                            [Entity (JobID 42) job]
       test (singleCapability CAGetJob) mock (getJobsOfProject "identifier")
         `shouldReturn` Right [Entity (JobID 42) job]
 
@@ -52,9 +54,10 @@ spec = do
         `shouldReturn` Left (PermissionError CAGetJob)
 
     it "gets the jobs in queue or in progress" $ do
-      let mock = mockSelect_ (JobStatus ==. JobInQueue
-                              ||. JobStatus ==. JobInProgress)
-                             [Entity (JobID 42) job]
+      let mock = mockSelect (JobStatus ==. JobInQueue
+                             ||. JobStatus ==. JobInProgress)
+                            (desc JobCreationTime <> desc EntityID)
+                            [Entity (JobID 42) job]
       test (singleCapability CAGetJob) mock getPendingJobs
         `shouldReturn` Right [Entity (JobID 42) job]
 

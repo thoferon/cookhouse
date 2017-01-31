@@ -3,6 +3,7 @@ module Cookhouse.Logic.JobCleanupSpec where
 import Control.Monad.Except
 
 import Data.List
+import Data.Monoid
 import Data.Time
 
 import Cookhouse.Data.Job
@@ -12,6 +13,8 @@ import SpecHelpers
 
 spec :: Spec
 spec = do
+  let defaultClauses = desc JobCreationTime <> desc EntityID
+
   describe "deleteOldJobs" $ do
     let next (Entity (JobID i) j) =
           let job' =
@@ -23,7 +26,7 @@ spec = do
     it "keeps the 24 newest jobs and delete the others" $ do
       let mock = do
             mockSelect (JobProjectIdentifier ==. "identifier")
-                       (desc JobCreationTime) ents
+                       defaultClauses ents
             forM_ [25..30] $ \i -> do
               mockGet (JobID i) (entityVal (ents `genericIndex` (i - 1)))
               mockDelete (JobID i)
@@ -38,7 +41,7 @@ spec = do
                          Entity jobID j { jobStatus = JobFailure }) l ++ r
           mock  = do
             mockSelect (JobProjectIdentifier ==. "identifier")
-                       (desc JobCreationTime) ents'
+                       defaultClauses ents'
             forM_ [26..30] $ \i -> do
               mockGet (JobID i) (entityVal (ents `genericIndex` (i - 1)))
               mockDelete (JobID i)
@@ -52,7 +55,7 @@ spec = do
           ents' = take 25 ents ++ [ent'] ++ drop 26 ents
           mock  = do
             mockSelect (JobProjectIdentifier ==. "identifier")
-                       (desc JobCreationTime) ents'
+                       defaultClauses ents'
             mockGet (JobID 25) (entityVal (head ents))
             mockDelete (JobID 25)
             mockGet (JobID 26) (entityVal ent')
