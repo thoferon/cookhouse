@@ -10,6 +10,7 @@ module Cookhouse.Data.JobResult
   , getJobResult
   , getJobResultsFor
   , createJobResult
+  , upsertJobResult
   , markJobResultOver
   ) where
 
@@ -95,6 +96,7 @@ instance FromHttpApiData (EntityID JobResult) where
 data JobResultProperty backend n a where
   JobResultJobID     :: JobResultProperty PSQL One (EntityID Job)
   JobResultError     :: JobResultProperty PSQL One (Maybe String)
+  JobResultPhase     :: JobResultProperty PSQL One JobPhase
   JobResultStartTime :: JobResultProperty PSQL One UTCTime
   JobResultEndTime   :: JobResultProperty PSQL One (Maybe UTCTime)
 
@@ -102,6 +104,7 @@ instance Property PSQL JobResult JobResultProperty where
   toColumns _ = \case
     JobResultJobID     -> ["job_id"]
     JobResultError     -> ["error"]
+    JobResultPhase     -> ["phase"]
     JobResultStartTime -> ["start_time"]
     JobResultEndTime   -> ["end_time"]
 
@@ -127,6 +130,21 @@ createJobResult jobID phase = do
     , jrStartTime  = now
     , jrEndTime    = Nothing
     }
+
+-- In case a crashed instance has already created it
+upsertJobResult :: MonadDataLayer m s => EntityID Job -> JobPhase
+                -> m (EntityID JobResult)
+upsertJobResult jobID phase = do
+  ensureAccess CAGetJobResult
+  ents <- select (JobResultJobID ==. jobID &&. JobResultPhase ==. phase)
+                 (limit 1)
+  case ents of
+    [] -> createJobResult jobID phase
+    Entity jrID _ : _ -> do
+      ensureAccess CAEditJobResult
+      now <- getTime
+      update jrID (JobResultStartTime =. now <> JobResultEndTime =. Nothing)
+      return jrID
 
 markJobResultOver :: MonadDataLayer m s => EntityID JobResult -> Maybe String
                   -> m ()

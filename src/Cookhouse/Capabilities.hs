@@ -50,6 +50,7 @@ jobWorkerCapability = MkCapability $ \d -> return $ case d of
   CAGetJob          -> AccessGranted
   CAEditJob         -> AccessGranted
   CADeleteJob       -> AccessGranted
+  CAGetJobResult    -> AccessGranted
   CACreateJobResult -> AccessGranted
   CAEditJobResult   -> AccessGranted
   _ -> AccessDeniedSoft

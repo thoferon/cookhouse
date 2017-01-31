@@ -136,7 +136,7 @@ rollbackJob ent@(Entity jobID _) = do
 
 performJob :: JobPhase -> Entity Job -> WorkerM Bool
 performJob phase (Entity jobID job@Job{..}) = do
-  jobResultID <- inDataLayer $ createJobResult jobID phase
+  jobResultID <- inDataLayer $ upsertJobResult jobID phase
 
   mErr <- flip catchError (return . Just) $ do
     projects <- getProjects

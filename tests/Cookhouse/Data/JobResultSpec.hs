@@ -56,6 +56,46 @@ spec = do
            (createJobResult (JobID 42) Run)
         `shouldReturn` Right (JobResultID 9999)
 
+  describe "upsertJobResult" $ do
+    let jr = JobResult (JobID 42) Nothing Run someTime Nothing
+
+    it "requires the capability CAGetJobResult" $ do
+      test anonymousCapability mempty (upsertJobResult (JobID 42) Run)
+        `shouldReturn` Left (PermissionError CAGetJobResult)
+
+    context "when it doesn't exist" $ do
+      let mock = do
+            mockSelect (JobResultJobID ==. JobID 42 &&. JobResultPhase ==. Run)
+                       (limit 1) []
+            mockInsert jr (JobResultID 9999)
+
+      it "requires the capability CACreateJobResult" $ do
+        test (singleCapability CAGetJobResult) mock
+             (upsertJobResult (JobID 42) Run)
+          `shouldReturn` Left (PermissionError CACreateJobResult)
+
+      it "inserts a new job result in the DB" $ do
+        test (someCapabilities [CAGetJobResult, CACreateJobResult]) mock
+             (upsertJobResult (JobID 42) Run)
+          `shouldReturn` Right (JobResultID 9999)
+
+    context "when it already exists" $ do
+      let mock = do
+            mockSelect (JobResultJobID ==. JobID 42 &&. JobResultPhase ==. Run)
+                       (limit 1) [Entity (JobResultID 9999) jr]
+            mockUpdate (JobResultID 9999) (JobResultStartTime =. someTime
+                                           <> JobResultEndTime =. Nothing)
+
+      it "requires the capability CAEditJobResult" $ do
+        test (singleCapability CAGetJobResult) mock
+             (upsertJobResult (JobID 42) Run)
+          `shouldReturn` Left (PermissionError CAEditJobResult)
+
+      it "edits its start time and end time" $ do
+        test (someCapabilities [CAGetJobResult, CAEditJobResult]) mock
+             (upsertJobResult (JobID 42) Run)
+          `shouldReturn` Right (JobResultID 9999)
+
   describe "markJobResultOver" $ do
     it "requires the capability CAEditJobResult" $ do
       test anonymousCapability mempty
