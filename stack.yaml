@@ -7,8 +7,5 @@ extra-deps:
 - servant-0.9.1.1
 - servant-server-0.9.1.1
 - http-api-data-0.3.2
-- seakale-0.1.0.0
-- seakale-postgresql-0.1.1.0
-- seakale-tests-0.1.0.0
 flags: {}
 extra-package-dbs: []
