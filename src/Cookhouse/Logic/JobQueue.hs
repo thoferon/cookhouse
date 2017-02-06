@@ -29,7 +29,7 @@ getNextRollbackJob = do
     findCandidate ent [] = return ent
     findCandidate ent (otherID : rest) = do
       other <- getJob otherID
-      if jobStatus other /= JobRollbacked
+      if jobStatus other /= JobRollbacked && jobType other == PostBuild
         then findCandidate (Entity otherID other) $ jobDependencies other
         else findCandidate ent rest
 
@@ -51,9 +51,8 @@ getNextRunJob = do
 
 abortUnneededJobs :: MonadDataLayer m s => m ()
 abortUnneededJobs = do
-  ents <- findJobs (JobStatus ==. JobInQueue) mempty
+  ents <- findJobs (JobStatus ==. JobInQueue) (asc EntityID)
   forM_ ents $ \(Entity jobID job) -> do
-    jobs <- getManyJobs $ jobDependencies job
-    let checkFailure = (`elem` [JobFailure, JobRollbacked, JobAborted])
-                       . jobStatus . entityVal
-    when (any checkFailure jobs) $ editJob jobID JobAborted
+    c <- count $ EntityID `inList` jobDependencies job
+                 &&. JobStatus `inList` [JobFailure, JobRollbacked, JobAborted]
+    when (c > 0) $ editJob jobID JobAborted

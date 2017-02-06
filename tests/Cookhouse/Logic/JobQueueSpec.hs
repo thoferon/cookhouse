@@ -49,15 +49,11 @@ spec = do
           job5 = job1 { jobDependencies = [JobID 55] }
           job6 = job1 { jobDependencies = [JobID 66] }
 
-          job11 = job1 { jobStatus = JobFailure }
-          job22 = job1 { jobStatus = JobRollbacked }
-          job33 = job1 { jobStatus = JobAborted }
-          job44 = job1 { jobStatus = JobInQueue }
-          job55 = job1 { jobStatus = JobInProgress }
-          job66 = job1 { jobStatus = JobSuccess }
-
+          statusFailure =
+            JobStatus `inList` [JobFailure, JobRollbacked, JobAborted]
           mock = do
-            mockSelect (JobStatus ==. JobInQueue) defaultClauses
+            mockSelect (JobStatus ==. JobInQueue)
+                       (defaultClauses <> asc EntityID)
                        [ Entity (JobID 1) job1
                        , Entity (JobID 2) job2
                        , Entity (JobID 3) job3
@@ -65,20 +61,14 @@ spec = do
                        , Entity (JobID 5) job5
                        , Entity (JobID 6) job6
                        ]
-            mockSelect (EntityID `inList` [JobID 11]) defaultClauses
-                       [Entity (JobID 11) job11]
+            mockCount  (EntityID `inList` [JobID 11] &&. statusFailure) 1
             mockUpdate (JobID 1) (JobStatus =. JobAborted)
-            mockSelect (EntityID `inList` [JobID 22]) defaultClauses
-                       [Entity (JobID 22) job22]
+            mockCount  (EntityID `inList` [JobID 22] &&. statusFailure) 1
             mockUpdate (JobID 2) (JobStatus =. JobAborted)
-            mockSelect (EntityID `inList` [JobID 33]) defaultClauses
-                       [Entity (JobID 33) job33]
+            mockCount  (EntityID `inList` [JobID 33] &&. statusFailure) 1
             mockUpdate (JobID 3) (JobStatus =. JobAborted)
-            mockSelect (EntityID `inList` [JobID 44]) defaultClauses
-                       [Entity (JobID 44) job44]
-            mockSelect (EntityID `inList` [JobID 55]) defaultClauses
-                       [Entity (JobID 55) job55]
-            mockSelect (EntityID `inList` [JobID 66]) defaultClauses
-                       [Entity (JobID 66) job66]
+            mockCount  (EntityID `inList` [JobID 44] &&. statusFailure) 0
+            mockCount  (EntityID `inList` [JobID 55] &&. statusFailure) 0
+            mockCount  (EntityID `inList` [JobID 66] &&. statusFailure) 0
 
       test jobWorkerCapability mock abortUnneededJobs `shouldReturn` Right ()
