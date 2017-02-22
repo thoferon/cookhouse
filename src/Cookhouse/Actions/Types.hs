@@ -37,7 +37,7 @@ runSubAction :: Environment -> SubAction a -> IO (Either CookhouseError a)
 runSubAction env action = do
   now  <- liftIO $ getCurrentTime
   eRes <- flip runReaderT env $
-    runRequestT $ runStoreT $ runTimeT now $ runExceptT action
+    runRequestT defaultPSQL $ runStoreT $ runTimeT now $ runExceptT action
   return $ case eRes of
     Left  err -> Left $ SQLError err
     Right res -> res

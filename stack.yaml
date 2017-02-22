@@ -1,17 +1,14 @@
-resolver: lts-7.15
+resolver: lts-7.16
 packages:
 - .
-- location: vendor/seakale
-  extra-dep: true
-- location: vendor/seakale/seakale-postgresql
-  extra-dep: true
-- location: vendor/seakale/seakale-tests
-  extra-dep: true
 extra-deps:
 - safe-access-0.3.1.0
 - recursion-schemes-5
 - servant-0.9.1.1
 - servant-server-0.9.1.1
 - http-api-data-0.3.2
+- seakale-0.1.0.0
+- seakale-postgresql-0.1.1.0
+- seakale-tests-0.1.0.0
 flags: {}
 extra-package-dbs: []

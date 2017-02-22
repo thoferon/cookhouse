@@ -29,37 +29,33 @@ data CookhouseError
 
 toServantError :: CookhouseError -> ServantErr
 toServantError err =
-  let (serr, msg) = errStatusAndMsg err
-  in serr { errBody = encode $ object [ "error" .= msg ] }
+    let (serr, msg) = errStatusAndMsg err
+    in serr { errBody = encode $ object [ "error" .= msg ] }
 
--- FIXME: not needed anymore
-class Show e => HTTPError e where
-  errStatusAndMsg :: e -> (ServantErr, String)
-  errStatusAndMsg _ = (err500, "Unknown error.")
-
-instance HTTPError CookhouseError where
-  errStatusAndMsg = \case
-    SQLError EntityNotFoundError -> (err404, "Record not found.")
-    SQLError _ -> (err500, "SQL Error.")
-    ParamError msg -> (err400, msg)
-    ValidationError f msg  ->
-      (err400, "Error on field \"" ++ f ++ "\": " ++ msg ++ ".")
-    PermissionError _ -> (err401, "Permission denied.")
-    InvalidCredentials -> (err401, "Invalid credentials.")
-    AuthenticationPluginError name msg ->
-      (err401 , "Authentication plugin \"" ++ name ++ "\" failed: " ++ msg)
-    TriggerPluginError name msg ->
-      (err500 , "Trigger plugin \"" ++ name ++ "\" failed:" ++ msg)
-    SourcePluginError name msg ->
-      (err500 , "Source plugin \"" ++ name ++ "\" failed:" ++ msg)
-    StepPluginError name msg ->
-      (err500 , "Step plugin \"" ++ name ++ "\" failed:" ++ msg)
-    MissingPluginError name -> (err400 , "Incorrect plugin name: " ++ name)
-    IncorrectProjectIdentifierError identifier ->
-      (err400, "Incorrect project identifier: " ++ identifier)
-    CircularDependencyError identifier ->
-      (err500, "Circular dependency around " ++ identifier ++ ".")
-    _ -> (err500, "Something went wrong.")
+  where
+    errStatusAndMsg :: CookhouseError -> (ServantErr, String)
+    errStatusAndMsg = \case
+      SQLError EntityNotFoundError -> (err404, "Record not found.")
+      SQLError _ -> (err500, "SQL Error.")
+      ParamError msg -> (err400, msg)
+      ValidationError f msg  ->
+        (err400, "Error on field \"" ++ f ++ "\": " ++ msg ++ ".")
+      PermissionError _ -> (err401, "Permission denied.")
+      InvalidCredentials -> (err401, "Invalid credentials.")
+      AuthenticationPluginError name msg ->
+        (err401 , "Authentication plugin \"" ++ name ++ "\" failed: " ++ msg)
+      TriggerPluginError name msg ->
+        (err500 , "Trigger plugin \"" ++ name ++ "\" failed:" ++ msg)
+      SourcePluginError name msg ->
+        (err500 , "Source plugin \"" ++ name ++ "\" failed:" ++ msg)
+      StepPluginError name msg ->
+        (err500 , "Step plugin \"" ++ name ++ "\" failed:" ++ msg)
+      MissingPluginError name -> (err400 , "Incorrect plugin name: " ++ name)
+      IncorrectProjectIdentifierError identifier ->
+        (err400, "Incorrect project identifier: " ++ identifier)
+      CircularDependencyError identifier ->
+        (err500, "Circular dependency around " ++ identifier ++ ".")
+      _ -> (err500, "Something went wrong.")
 
 cantBeBlankError :: String -> CookhouseError
 cantBeBlankError = flip ValidationError "Can't be blank"

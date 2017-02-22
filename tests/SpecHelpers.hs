@@ -1,6 +1,3 @@
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TupleSections #-}
-
 module SpecHelpers
   ( module SpecHelpers
   , module Data.Either
@@ -39,7 +36,7 @@ someTime = UTCTime { utctDay = ModifiedJulianDay 58000, utctDayTime = 40000 }
 test' :: UTCTime -> CookhouseCapability -> Mock (StoreMock PSQL) ()
       -> DataM a -> (Either CookhouseError a, Mock (StoreMock PSQL) ())
 test' time cap mock action =
-  let (eRes, mock') = runStore' PSQL mock $ runTimeT time $ runExceptT $
+  let (eRes, mock') = runStore' defaultPSQL mock $ runTimeT time $ runExceptT $
         runSafeAccessT action [cap]
       eRes' = case eRes of
         Left  err                   -> Left $ SQLError err

@@ -35,7 +35,7 @@ inDataLayer :: DataM a -> WorkerM a
 inDataLayer action = do
   now  <- liftIO getCurrentTime
   cap  <- getCapability
-  eRes <- runRequest $ runStore $ runTimeT now $ runExceptT $
+  eRes <- runRequest defaultPSQL $ runStore $ runTimeT now $ runExceptT $
     runSafeAccessT action [cap]
   case eRes of
     Left  err                   -> throwError $ SQLError err
