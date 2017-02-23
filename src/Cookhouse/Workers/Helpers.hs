@@ -18,9 +18,10 @@ import System.IO
 import System.Exit
 
 import Cookhouse.Capabilities
+import Cookhouse.Data.Types
 import Cookhouse.Environment
 import Cookhouse.Errors
-import Cookhouse.Data.Types
+import Cookhouse.Options
 
 type WorkerM
   = ReaderT (Environment, CookhouseCapability) (ExceptT CookhouseError IO)
@@ -33,9 +34,11 @@ getCapability = (\(_,c) -> c) <$> ask
 
 inDataLayer :: DataM a -> WorkerM a
 inDataLayer action = do
+  opts <- getOptions
+  let psql = defaultPSQL { psqlLogQueries = optLogSQLQueries opts }
   now  <- liftIO getCurrentTime
   cap  <- getCapability
-  eRes <- runRequest defaultPSQL $ runStore $ runTimeT now $ runExceptT $
+  eRes <- runRequest psql $ runStore $ runTimeT now $ runExceptT $
     runSafeAccessT action [cap]
   case eRes of
     Left  err                   -> throwError $ SQLError err

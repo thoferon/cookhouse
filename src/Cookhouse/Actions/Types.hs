@@ -27,6 +27,7 @@ import Cookhouse.Capabilities
 import Cookhouse.Data.Types
 import Cookhouse.Environment
 import Cookhouse.Errors
+import Cookhouse.Options
 import Cookhouse.Plugins.Types
 
 type SubAction =
@@ -35,9 +36,10 @@ type Action = SafeAccessT CookhouseAccess SubAction
 
 runSubAction :: Environment -> SubAction a -> IO (Either CookhouseError a)
 runSubAction env action = do
+  let psql = defaultPSQL { psqlLogQueries = optLogSQLQueries (envOptions env) }
   now  <- liftIO $ getCurrentTime
   eRes <- flip runReaderT env $
-    runRequestT defaultPSQL $ runStoreT $ runTimeT now $ runExceptT action
+    runRequestT psql $ runStoreT $ runTimeT now $ runExceptT action
   return $ case eRes of
     Left  err -> Left $ SQLError err
     Right res -> res

@@ -23,9 +23,9 @@ import Cookhouse.Plugins.Types
 import Cookhouse.Workers.JobWorker
 import Cookhouse.Workers.TriggerWorker
 
-processOptions :: (Config -> IO ()) -> IO ()
+processOptions :: (Options -> Config -> IO ()) -> IO ()
 processOptions cont = do
-  opts   <- getOptions
+  opts   <- parseOptions
   config <- readConfigOrDie $ optConfigFile opts
 
   case optGroup opts of
@@ -41,8 +41,8 @@ processOptions cont = do
       setUserID $ userID userEntry
 
   if optDaemon opts
-    then void $ forkProcess $ createSession >> cont config
-    else cont config
+    then void $ forkProcess $ createSession >> cont opts config
+    else cont opts config
 
 webServer :: Environment -> IO ()
 webServer env = run (configPort (envConfig env)) (app env)
@@ -50,9 +50,9 @@ webServer env = run (configPort (envConfig env)) (app env)
 defaultMain :: [AuthenticationPlugin] -> [TriggerPlugin] -> [SourcePlugin]
             -> [StepPlugin] -> IO ()
 defaultMain authPlugins sourcePlugins triggerPlugins stepPlugins = do
-  processOptions $ \config -> do
+  processOptions $ \opts config -> do
     pool <- mkConnectionPool config
-    let env = mkEnvironment config pool authPlugins sourcePlugins
+    let env = mkEnvironment opts config pool authPlugins sourcePlugins
                             triggerPlugins stepPlugins
     void $ forkOS $ triggerWorker env
     void $ forkOS $ jobWorker     env

@@ -19,6 +19,7 @@ import Cookhouse.Config
 import Cookhouse.Data.Job
 import Cookhouse.Data.Project
 import Cookhouse.Errors
+import Cookhouse.Options
 import Cookhouse.Plugins.Types
 
 data Environment = Environment
@@ -27,23 +28,26 @@ data Environment = Environment
   , envSourcePlugins         :: [SourcePlugin]
   , envStepPlugins           :: [StepPlugin]
   , envConnectionPool        :: Pool Connection
+  , envOptions               :: Options
   , envConfig                :: Config
   }
 
-defaultEnvironment :: Config -> Pool Connection -> Environment
-defaultEnvironment config pool = Environment
+defaultEnvironment :: Options -> Config -> Pool Connection -> Environment
+defaultEnvironment opts config pool = Environment
   { envAuthenticationPlugins = []
   , envTriggerPlugins        = []
   , envSourcePlugins         = []
   , envStepPlugins           = []
   , envConnectionPool        = pool
+  , envOptions               = opts
   , envConfig                = config
   }
 
-mkEnvironment :: Config -> Pool Connection -> [AuthenticationPlugin]
+mkEnvironment :: Options -> Config -> Pool Connection -> [AuthenticationPlugin]
               -> [TriggerPlugin] -> [SourcePlugin] -> [StepPlugin]
               -> Environment
-mkEnvironment config pool authPlugins triggerPlugins sourcePlugins stepPlugins =
+mkEnvironment opts config pool authPlugins triggerPlugins sourcePlugins
+              stepPlugins =
     let authPlugins' =
           helper authPluginName authPluginWithDefaultConfig authPlugins
         triggerPlugins' =
@@ -53,7 +57,7 @@ mkEnvironment config pool authPlugins triggerPlugins sourcePlugins stepPlugins =
         stepPlugins' =
           helper stepPluginName stepPluginWithDefaultConfig stepPlugins
 
-    in (defaultEnvironment config pool)
+    in (defaultEnvironment opts config pool)
          { envAuthenticationPlugins = authPlugins'
          , envTriggerPlugins        = triggerPlugins'
          , envSourcePlugins         = sourcePlugins'
@@ -140,6 +144,9 @@ instance (HasEnvironment m, Monad m, MonadBaseControl IO m)
   withConn f = do
     pool <- getConnectionPool
     withResource pool f
+
+getOptions :: HasEnvironment f => f Options
+getOptions = envOptions <$> getEnvironment
 
 getConfig :: HasEnvironment f => f Config
 getConfig = envConfig <$> getEnvironment
