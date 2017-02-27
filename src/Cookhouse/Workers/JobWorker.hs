@@ -4,32 +4,33 @@ module Cookhouse.Workers.JobWorker
   ( jobWorker
   ) where
 
-import Control.Concurrent
-import Control.Exception (AsyncException(..), fromException)
-import Control.Monad.Catch
-import Control.Monad.Except
-import Control.Monad.State
+import           Control.Concurrent
+import           Control.Exception (AsyncException(..), fromException)
+import           Control.Monad.Catch
+import           Control.Monad.Except
+import           Control.Monad.State
 
-import Data.List
-import Data.Maybe
+import           Data.List
+import           Data.Maybe
 
-import System.Directory
-import System.FilePath
-import System.IO
+import           System.Directory
+import           System.FilePath
+import           System.IO
+import qualified System.Environment as E
 
-import Cookhouse.Capabilities
-import Cookhouse.Config
-import Cookhouse.Data.Job
-import Cookhouse.Data.JobResult
-import Cookhouse.Data.Project
-import Cookhouse.Data.Types hiding (get)
-import Cookhouse.Environment
-import Cookhouse.Errors
-import Cookhouse.Logic.JobCleanup
-import Cookhouse.Logic.JobQueue
-import Cookhouse.Logic.JobResultOutput
-import Cookhouse.Plugins.Types
-import Cookhouse.Workers.Helpers
+import           Cookhouse.Capabilities
+import           Cookhouse.Config
+import           Cookhouse.Data.Job
+import           Cookhouse.Data.JobResult
+import           Cookhouse.Data.Project
+import           Cookhouse.Data.Types hiding (get)
+import           Cookhouse.Environment
+import           Cookhouse.Errors
+import           Cookhouse.Logic.JobCleanup
+import           Cookhouse.Logic.JobQueue
+import           Cookhouse.Logic.JobResultOutput
+import           Cookhouse.Plugins.Types
+import           Cookhouse.Workers.Helpers
 
 {-
  - Worker management
@@ -166,18 +167,23 @@ performJob phase (Entity jobID job@Job{..}) = do
 
 runStepPlugin :: Step -> JobPhase -> Job -> FilePath
               -> WorkerM (Either String Bool)
-runStepPlugin step phase job dir = do
+runStepPlugin Step{..} phase job dir = do
   let logFile = dir </> jobOutputFile phase (jobType job)
 
-  plugin <- getStepPlugin $ stepPlugin step
+  plugin <- getStepPlugin stepPlugin
   let action = case phase of
         Run      -> stepPluginRun      plugin
         Rollback -> stepPluginRollback plugin
 
-  env  <- getEnvironment
+  envVars <- liftIO E.getEnvironment
+  let dir'     = maybe dir (dir </>) stepSubdir
+      keys     = map fst stepEnvVars
+      envVars' = stepEnvVars ++ filter ((`notElem` keys) . fst) envVars
+
+  env <- getEnvironment
   eRes <- liftIO $ withFile logFile AppendMode $ \h -> do
     runWorker env jobWorkerCapability $
-      runPlugin $ action dir h $ stepConfig step
+      runPlugin $ action dir' envVars' h stepConfig
   either throwError return eRes
 
 prepareJobDirectory :: Project -> Job -> WorkerM FilePath

@@ -19,8 +19,9 @@ plugin = StepPlugin
   , stepPluginRollback = emptyRollback
   }
 
-compileProject :: FilePath -> Handle -> PluginConfig -> PluginM Bool
-compileProject dir handle config = do
+compileProject :: FilePath -> [(String, String)] -> Handle -> PluginConfig
+               -> PluginM Bool
+compileProject dir envVars handle config = do
   let test        = fromMaybe False $ lookupConfigBool config "test"
       systemGHC   = fromMaybe False $ lookupConfigBool config "system-ghc"
       mGHCOptions = lookupConfigString config "ghc-options"
@@ -31,6 +32,6 @@ compileProject dir handle config = do
              ++ maybe [] (\opts -> ["--ghc-options", opts]) mGHCOptions
 
   code <- liftIO $
-    waitForProcess =<< runProcess "stack" args (Just dir) Nothing Nothing
+    waitForProcess =<< runProcess "stack" args (Just dir) (Just envVars) Nothing
                                   (Just handle) (Just handle)
   return $ code == ExitSuccess

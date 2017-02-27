@@ -184,18 +184,28 @@ instance ToJSON Trigger where
 
 -- | Action to perform in order to build or deploy the project
 data Step = Step
-  { stepPlugin :: String       -- ^ Name of a plugin that will perform it
-  , stepConfig :: PluginConfig -- ^ Extra values for plugin configuration
+  { stepPlugin  :: String             -- ^ Name of a plugin that will perform it
+  , stepSubdir  :: Maybe FilePath     -- ^ Subdirectory in which the plugin runs
+  , stepEnvVars :: [(String, String)] -- ^ Overwritten environment variables
+  , stepConfig  :: PluginConfig       -- ^ Extra values for plugin configuration
   } deriving (Eq, Show)
 
 instance FromJSON Step where
   parseJSON = withObject "Step" $ \obj -> do
-    config <- fmap catMaybes . forM (M.toList obj) $ \(k,v) -> case k of
-      "plugin" -> return Nothing
-      _ -> do
-        v' <- parseJSON v
-        return $ Just (T.unpack k, v')
-    Step <$> obj .: "plugin" <*> pure config
+    config <- fmap catMaybes . forM (M.toList obj) $ \(k,v) ->
+      if k `elem` ["plugin", "subdirectory", "environment"]
+        then return Nothing
+        else do
+          v' <- parseJSON v
+          return $ Just (T.unpack k, v')
+
+    mEnvObj <- obj .:? "environment"
+    env <- case mEnvObj of
+      Nothing -> return []
+      Just envObj -> forM (M.toList envObj) $ \(k,v) -> (k,) <$> parseJSON v
+
+    Step <$> obj .: "plugin" <*> obj .:? "subdirectory"
+         <*> pure env <*> pure config
 
 -- | Check whether the project are sound, i.e. dependencies exist and are not
  -- circular.

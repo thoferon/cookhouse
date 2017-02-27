@@ -200,19 +200,23 @@ triggerPluginWithDefaultConfig pl@TriggerPlugin{..} defs = pl
 -- | A plugin to (post-)build the project
 data StepPlugin = StepPlugin
   { stepPluginName     :: String
-  , stepPluginRun      :: FilePath     -- ^ Directory of the build
-                       -> Handle       -- ^ Handle of the output file
-                       -> PluginConfig -- ^ Extra configuration
-                       -> PluginM Bool -- ^ Whether the step has succeeded
-  , stepPluginRollback :: FilePath -> Handle -> PluginConfig -> PluginM Bool
+  , stepPluginRun      :: FilePath           -- ^ Directory of the build
+                       -> [(String, String)] -- ^ Environment variables
+                       -> Handle             -- ^ Handle of the output file
+                       -> PluginConfig       -- ^ Extra configuration
+                       -> PluginM Bool       -- ^ Whether the step has succeeded
+  , stepPluginRollback :: FilePath -> [(String, String)] -> Handle
+                       -> PluginConfig -> PluginM Bool
   }
 
 stepPluginWithDefaultConfig :: StepPlugin -> PluginConfig -> StepPlugin
 stepPluginWithDefaultConfig pl@StepPlugin{..} defs = pl
-  { stepPluginRun = \p h -> stepPluginRun p h . pluginConfigWithDefaults defs
-  , stepPluginRollback = \p h ->
-      stepPluginRollback p h . pluginConfigWithDefaults defs
+  { stepPluginRun = \p e h ->
+      stepPluginRun p e h . pluginConfigWithDefaults defs
+  , stepPluginRollback = \p e h ->
+      stepPluginRollback p e h . pluginConfigWithDefaults defs
   }
 
-emptyRollback :: FilePath -> Handle -> PluginConfig -> PluginM Bool
-emptyRollback _ _ _ = return True
+emptyRollback :: FilePath -> [(String, String)] -> Handle -> PluginConfig
+              -> PluginM Bool
+emptyRollback _ _ _ _ = return True

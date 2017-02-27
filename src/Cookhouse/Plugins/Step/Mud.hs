@@ -19,8 +19,9 @@ plugin = StepPlugin
   , stepPluginRollback = callMud "rollback" False
   }
 
-callMud :: String -> Bool -> FilePath -> Handle -> PluginConfig -> PluginM Bool
-callMud command withDir dir handle config = do
+callMud :: String -> Bool -> FilePath -> [(String, String)] -> Handle
+        -> PluginConfig -> PluginM Bool
+callMud command withDir dir envVars handle config = do
   project <- getConfigString config "project"
 
   let sudo = fromMaybe False $ lookupConfigBool config "use-sudo"
@@ -31,6 +32,6 @@ callMud command withDir dir handle config = do
              ++ (if withDir then [dir] else [])
 
   code <- liftIO $
-    waitForProcess =<< runProcess prog args (Just dir) Nothing Nothing
+    waitForProcess =<< runProcess prog args (Just dir) (Just envVars) Nothing
                                   (Just handle) (Just handle)
   return $ code == ExitSuccess
