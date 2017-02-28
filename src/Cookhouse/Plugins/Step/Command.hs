@@ -22,13 +22,13 @@ runCommand :: FilePath -> [(String, String)] -> Handle -> PluginConfig
 runCommand dir envVars handle config = do
   cmd <- getConfigString config "command"
 
-  let cp  = (shell cmd)
-              { cwd     = Just dir
-              , env     = Just envVars
-              , std_in  = NoStream
-              , std_out = UseHandle handle
-              , std_err = UseHandle handle
-              }
+  let cp = (shell cmd)
+             { cwd     = Just dir
+             , env     = Just envVars
+             , std_in  = NoStream
+             , std_out = UseHandle handle
+             , std_err = UseHandle handle
+             }
 
   code <- liftIO $ do
     (_,_,_,ph) <- createProcess cp

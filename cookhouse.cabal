@@ -66,6 +66,7 @@ library
                        Cookhouse.Plugins.Step.Haskell
                        Cookhouse.Plugins.Step.Make
                        Cookhouse.Plugins.Step.Mud
+                       Cookhouse.Plugins.Step.Ocaml
                        Cookhouse.Plugins.Trigger.SourceChange
                        Cookhouse.Plugins.Types
                        Cookhouse.Workers.Helpers
