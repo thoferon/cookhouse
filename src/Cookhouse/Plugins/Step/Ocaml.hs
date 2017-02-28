@@ -36,7 +36,7 @@ runOcaml dir envVars handle config = do
   where
     runProcess :: String -> [String] -> ExceptT () PluginM ()
     runProcess prog args = do
-      liftIO $ hPutStrLn handle $ showCommandForUser prog args
+      liftIO $ hPutStrLn handle $ P.showCommandForUser prog args
       code <- liftIO $ do
         (_,_,_,ph) <- P.createProcess_ "createProcess_" $ (P.proc prog args)
           { P.cwd     = Just dir
