@@ -63,6 +63,7 @@ library
                        Cookhouse.Options
                        Cookhouse.Plugins.Source.Darcs
                        Cookhouse.Plugins.Step.Haskell
+                       Cookhouse.Plugins.Step.Make
                        Cookhouse.Plugins.Step.Mud
                        Cookhouse.Plugins.Trigger.SourceChange
                        Cookhouse.Plugins.Types
