@@ -36,7 +36,13 @@ runOcaml dir envVars handle config = do
   where
     runProcess :: String -> [String] -> ExceptT () PluginM ()
     runProcess prog args = do
-      code <- liftIO $ P.waitForProcess =<<
-        P.runProcess prog args (Just dir) (Just envVars) Nothing
-                     (Just handle) (Just handle)
+      code <- liftIO $ do
+        (_,_,_,ph) <- P.createProcess $ (P.proc prog args)
+          { P.cwd     = Just dir
+          , P.env     = Just envVars
+          , P.std_in  = P.NoStream
+          , P.std_out = P.UseHandle handle
+          , P.std_err = P.UseHandle handle
+          }
+        P.waitForProcess ph
       unless (code == ExitSuccess) $ throwError ()
