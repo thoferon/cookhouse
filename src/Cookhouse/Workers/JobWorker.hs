@@ -182,6 +182,7 @@ runStepPlugin Step{..} phase job dir = do
 
   env <- getEnvironment
   eRes <- liftIO $ withFile logFile AppendMode $ \h -> do
+    hSetBuffering h NoBuffering
     runWorker env jobWorkerCapability $
       runPlugin $ action dir' envVars' h stepConfig
   either throwError return eRes
