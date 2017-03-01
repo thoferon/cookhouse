@@ -28,6 +28,7 @@ runOcaml dir envVars handle config = do
         Just switch -> runProcess "opam" ["switch", switch]
 
       runProcess "oasis" ["setup"]
+      runProcess "make" []
       runProcess "oasis2opam" ["--local"]
       runProcess "opam" ["pin", "add", pkg, dir, "-y"]
 
