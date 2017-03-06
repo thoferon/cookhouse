@@ -23,8 +23,6 @@ module Cookhouse.Data.Job
   , deleteJob
   ) where
 
-import           Control.Monad
-
 import           Data.Aeson
 import           Data.Monoid
 import           Data.Time
@@ -220,9 +218,4 @@ createJob typ identifier deps = do
 deleteJob :: MonadDataLayer m s => EntityID Job -> m ()
 deleteJob jobID = do
   ensureAccess CADeleteJob
-  job <- getJob jobID
-  forM_ (jobDependencies job) $ \depID ->
-    catchSeakaleError (deleteJob depID) $ \case
-      EntityNotFoundError -> return ()
-      e -> throwSeakaleError e
   delete jobID

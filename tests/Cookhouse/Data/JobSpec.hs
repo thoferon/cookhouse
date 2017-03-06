@@ -100,18 +100,7 @@ spec = do
       test anonymousCapability mempty (deleteJob $ JobID 42)
         `shouldReturn` Left (PermissionError CADeleteJob)
 
-    it "deletes the job AFTER its dependencies recursively" $ do
-      let job11   = job { jobDependencies = [JobID 222] }
-          job222  = job { jobDependencies = [JobID 3333] }
-          job3333 = job { jobDependencies = [] }
-
-          mock = do
-            mockGet (JobID 11)   job11
-            mockGet (JobID 222)  job222
-            mockGet (JobID 3333) job3333
-            mockDelete (JobID 3333)
-            mockDelete (JobID 222)
-            mockDelete (JobID 11)
-
-      test (someCapabilities [CAGetJob, CADeleteJob]) mock
+    it "deletes the job" $ do
+      let mock = mockDelete (JobID 11)
+      test (singleCapability CADeleteJob) mock
            (deleteJob $ JobID 11) `shouldReturn` Right ()

@@ -2,7 +2,6 @@ module Cookhouse.Logic.JobCleanupSpec where
 
 import Control.Monad.Except
 
-import Data.List
 import Data.Monoid
 import Data.Time
 
@@ -27,9 +26,7 @@ spec = do
       let mock = do
             mockSelect (JobProjectIdentifier ==. "identifier")
                        defaultClauses ents
-            forM_ [25..30] $ \i -> do
-              mockGet (JobID i) (entityVal (ents `genericIndex` (i - 1)))
-              mockDelete (JobID i)
+            forM_ [25..30] $ mockDelete . JobID
 
       test jobWorkerCapability mock (deleteOldJobs "identifier")
         `shouldReturn` Right (reverse (take 24 ents))
@@ -42,28 +39,7 @@ spec = do
           mock  = do
             mockSelect (JobProjectIdentifier ==. "identifier")
                        defaultClauses ents'
-            forM_ [26..30] $ \i -> do
-              mockGet (JobID i) (entityVal (ents `genericIndex` (i - 1)))
-              mockDelete (JobID i)
+            forM_ [26..30] $ mockDelete . JobID
 
       test jobWorkerCapability mock (deleteOldJobs "identifier")
         `shouldReturn` Right (reverse (take 25 ents'))
-
-    it "doesn't fail if a job has already been deleted by dependencies" $ do
-      let ent@(Entity _ job') = ents !! 25
-          ent'  = ent { entityVal = job' { jobDependencies = [JobID 25] } }
-          ents' = take 25 ents ++ [ent'] ++ drop 26 ents
-          mock  = do
-            mockSelect (JobProjectIdentifier ==. "identifier")
-                       defaultClauses ents'
-            mockGet (JobID 25) (entityVal (head ents))
-            mockDelete (JobID 25)
-            mockGet (JobID 26) (entityVal ent')
-            mockFailingGet (JobID 25) EntityNotFoundError
-            mockDelete (JobID 26)
-            forM_ [27..30] $ \i -> do
-              mockGet (JobID i) (entityVal (ents `genericIndex` (i - 1)))
-              mockDelete (JobID i)
-
-      test jobWorkerCapability mock (deleteOldJobs "identifier")
-        `shouldReturn` Right (reverse (take 24 ents'))
