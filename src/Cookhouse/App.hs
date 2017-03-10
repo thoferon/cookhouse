@@ -30,7 +30,7 @@ instance AllCTRender '[Artefact] BSL.ByteString where
   handleAcceptH _ (AcceptHeader h) v = Just (BSL.fromStrict h, v)
 
 instance AllCTUnrender '[Artefact] BSL.ByteString where
-  handleCTypeH _ h v = Just (Right v)
+  handleCTypeH _ _ v = Just (Right v)
 
 instance Accept Artefact where
   contentType _ = "text" // "any"
