@@ -48,11 +48,14 @@ data Project = Project
   { projectIdentifier     :: ProjectIdentifier -- ^ A unique string
   , projectSource         :: Source    -- ^ Location of the code (e.g. a repo)
   , projectDependencies   :: [ProjectIdentifier]
-                                       -- ^ Project identifiers of dependencies
-  , projectTriggers       :: [Trigger] -- ^ Events on which to trigger a build
-  , projectBuildSteps     :: [Step]    -- ^ Steps to build the project
-  , projectPostBuildSteps :: [Step]    -- ^ Steps to perform afterwards
-                                       -- (e.g. deployment)
+                                        -- ^ Project identifiers of dependencies
+  , projectTriggers       :: [Trigger]  -- ^ Events on which to trigger a build
+  , projectBuildSteps     :: [Step]     -- ^ Steps to build the project
+  , projectPostBuildSteps :: [Step]     -- ^ Steps to perform afterwards
+                                        -- (e.g. deployment)
+  , projectArtefacts      :: [FilePath] -- ^ Paths to files such as a coverage
+                                        -- report which get linked to in the
+                                        -- front-end
   } deriving (Eq, Show)
 
 instance FromJSON Project where
@@ -63,6 +66,7 @@ instance FromJSON Project where
     <*> (fromMaybe [] <$> obj .:? "triggers")
     <*> obj .: "build-steps"
     <*> (fromMaybe [] <$> obj .:? "post-build-steps")
+    <*> (fromMaybe [] <$> obj .:? "artefacts")
 
 instance ToJSON Project where
   toJSON (Project{..}) = object
@@ -72,6 +76,7 @@ instance ToJSON Project where
     , "triggers"         .= projectTriggers
     , "build-steps"      .= map stepPlugin projectBuildSteps
     , "post-build-steps" .= map stepPlugin projectPostBuildSteps
+    , "artefacts"        .= projectArtefacts
     ]
 
 -- | Source where to fetch the code from

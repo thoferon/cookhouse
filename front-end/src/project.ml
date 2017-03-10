@@ -12,7 +12,7 @@ open Job
 open Menu
 open Routes
 
-let view project build_request build_enabled jobs =
+let view project build_request build_enabled artefact_request jobs =
   let btn0 =
     (E.button (Sub.click build_request (fun _ -> ()))
      |- text "Build")
@@ -40,14 +40,43 @@ let view project build_request build_enabled jobs =
                           |* ("class", "enum-element")
                           |* ("href", CVF.to_fragment Routes.project dep)
                           |- text dep
+                        ) deps)
+         |- (tag "dt" |- text "Artefacts")
+         |- (tag "dd"
+             |- match artefacts project with
+                | []   -> text "None"
+                | deps ->
+                   tag "ul" |* ("class", "no-bullet")
+                   |+ List.map (fun name ->
+                          tag "li"
+                          |- (E.a (Sub.click ~prevent_default:true
+                                             artefact_request (fun _ -> name))
+                              |* ("href", "#") |- text name)
                         ) deps))
      |- (tag "div" |* ("class", "grid")
         |+ List.map job_minimal_view jobs)
+
+let artefact_network project =
+  let open Network.Infix in
+  event () >>= fun artefact_request ->
+  event () >>= fun artefact_ready ->
+
+  react_ artefact_request (fun path ->
+           plug_lwt artefact_ready (Api.Artefact.get_artefact_path_for_project
+                                      (identifier project) path)
+         )
+
+  >> react_ artefact_ready (fun path ->
+              Dom_html.window##.location##.href := Js.string path
+            )
+
+  >> return artefact_request
 
 let actual_network menu_highlight project container =
   let open Network.Infix in
   event () >>= fun build_request ->
   event () >>= fun build_accepted ->
+  artefact_network project >>= fun artefact_request ->
 
   every 5. () >>= fun ticker ->
   (last ~init:[] <$> event ()) >>= fun jobs ->
@@ -76,7 +105,7 @@ let actual_network menu_highlight project container =
   >> react_ ticker fetch_jobs
 
   >> vdom container dat (fun (build_enabled, jobs) ->
-            view project build_request build_enabled jobs
+            view project build_request build_enabled artefact_request jobs
           )
 
 let project_network menu_highlight projects project_id container =

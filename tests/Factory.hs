@@ -11,6 +11,7 @@ commonsProject = Project
   , projectTriggers       = []
   , projectBuildSteps     = []
   , projectPostBuildSteps = []
+  , projectArtefacts      = []
   }
 
 libAProject :: Project
@@ -21,6 +22,7 @@ libAProject = Project
   , projectTriggers       = []
   , projectBuildSteps     = []
   , projectPostBuildSteps = []
+  , projectArtefacts      = []
   }
 
 libBProject :: Project
@@ -31,6 +33,7 @@ libBProject = Project
   , projectTriggers       = []
   , projectBuildSteps     = []
   , projectPostBuildSteps = []
+  , projectArtefacts      = []
   }
 
 websiteProject :: Project
@@ -41,6 +44,7 @@ websiteProject = Project
   , projectTriggers       = []
   , projectBuildSteps     = []
   , projectPostBuildSteps = []
+  , projectArtefacts      = []
   }
 
 independentProject :: Project
@@ -51,6 +55,7 @@ independentProject = Project
   , projectTriggers       = []
   , projectBuildSteps     = []
   , projectPostBuildSteps = []
+  , projectArtefacts      = []
   }
 
 websiteWithIndependentProject :: Project

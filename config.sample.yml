@@ -20,4 +20,9 @@ projects:
     build-steps:
       - plugin: haskell
         test: true
+        coverage: true
         ghc-options: -Werror
+      - plugin: command
+        command: ln -s `stack path --local-hpc-root` hpc
+    artefacts:
+      - hpc/cookhouse/unit-tests/hpc_index.html

@@ -268,3 +268,7 @@ form input[type='submit'] {
   display: inline-block;
   padding: 0 1px;
 }
+
+ul.no-bullet li {
+  list-style-type: none;
+}

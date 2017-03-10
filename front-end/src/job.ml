@@ -87,7 +87,7 @@ let job_result_view show_phase result =
           |- text subtitle))
   |- E.div (job_result_output_network result)
 
-let view job deps results =
+let view project job deps results artefact_request  =
   tag "article"
   |- (tag "header"
       |- (tag "h1" |- text ("Job #" ^ Api.Job.identifier job)))
@@ -100,7 +100,19 @@ let view job deps results =
       |- (tag "dt" |- text "Type")
       |- (tag "dd" |- text (type_text job))
       |- (tag "dt" |- text "Status")
-      |- (tag "dd" |- text (status_text job)))
+      |- (tag "dd" |- text (status_text job))
+      |- (tag "dt" |- text "Artefacts")
+      |- (tag "dd"
+          |- match Api.Project.artefacts project with
+             | []   -> text "None"
+             | deps ->
+                tag "ul" |* ("class", "no-bullet")
+                |+ List.map (fun name ->
+                       tag "li"
+                       |- (E.a (Sub.click ~prevent_default:true
+                                          artefact_request (fun _ -> name))
+                           |* ("href", "#") |- text name)
+                     ) deps))
   |- (match deps with
       | [] -> tag "span"
       | _  -> tag "section"
@@ -110,10 +122,32 @@ let view job deps results =
   |+ let show_phase = List.length results != 1 in
      List.map (job_result_view show_phase) results
 
+let artefact_network job_id =
+  let open Network.Infix in
+  event () >>= fun artefact_request ->
+  event () >>= fun artefact_ready ->
+
+  react_ artefact_request (fun path ->
+           plug_lwt artefact_ready (Api.Artefact.get_artefact_path_for_job
+                                      job_id path)
+         )
+
+  >> react_ artefact_ready (fun path ->
+              Dom_html.window##.location##.href := Js.string path
+            )
+
+  >> return artefact_request
+
 let job_network menu_highlight projects project_id job_id container =
+  let project =
+    List.find (fun project -> Api.Project.identifier project = project_id)
+              projects
+  in
+
   let open Network.Infix in
   (on ~init:None ~f:(fun _ dat -> Some dat) <$> event ()) >>= fun job_data ->
   every 5. () >>= fun tick ->
+  artefact_network job_id >>= fun artefact_request ->
 
   initially (fun () ->
       let _ = trigger menu_highlight (Project project_id) in
@@ -125,5 +159,6 @@ let job_network menu_highlight projects project_id job_id container =
   >> vdom container job_data
           (function
            | None -> tag "span" |- text "Loading job..."
-           | Some (job, deps, results) -> view job deps results
+           | Some (job, deps, results) ->
+              view project job deps results artefact_request
           )

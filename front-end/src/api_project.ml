@@ -10,12 +10,14 @@ type t =
   ; source_location : string
   ; source_plugin   : string
   ; dependencies    : string list
+  ; artefacts       : string list
   }
 
 let identifier { identifier } = identifier
 let source_location { source_location } = source_location
 let source_plugin { source_plugin } = source_plugin
 let dependencies { dependencies } = dependencies
+let artefacts { artefacts } = artefacts
 
 let parse_project obj =
   let identifier = obj |> member "identifier" |> to_string
@@ -25,8 +27,10 @@ let parse_project obj =
     obj |> member "source" |> member "plugin" |> to_string
   and dependencies =
     List.map to_string (obj |> member "dependencies" |> to_list)
+  and artefacts =
+    List.map to_string (obj |> member "artefacts" |> to_list)
   in
-  { identifier; source_location; source_plugin; dependencies }
+  { identifier; source_location; source_plugin; dependencies; artefacts }
 
 let get_projects () =
   let extract { code; content } =

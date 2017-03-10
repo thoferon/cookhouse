@@ -23,12 +23,16 @@ compileProject :: FilePath -> [(String, String)] -> Handle -> PluginConfig
                -> PluginM Bool
 compileProject dir envVars handle config = do
   let test        = fromMaybe False $ lookupConfigBool config "test"
+      benchmark   = fromMaybe False $ lookupConfigBool config "benchmark"
+      coverage    = fromMaybe False $ lookupConfigBool config "coverage"
       systemGHC   = fromMaybe False $ lookupConfigBool config "system-ghc"
       mGHCOptions = lookupConfigString config "ghc-options"
 
       args = (if systemGHC then ["--system-ghc"] else [])
              ++ ["build"]
-             ++ (if test then ["--test"] else [])
+             ++ (if test      then ["--test"]      else [])
+             ++ (if benchmark then ["--benchmark"] else [])
+             ++ (if coverage  then ["--coverage"]  else [])
              ++ maybe [] (\opts -> ["--ghc-options", opts]) mGHCOptions
 
   code <- liftIO $

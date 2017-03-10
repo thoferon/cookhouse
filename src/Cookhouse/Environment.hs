@@ -3,24 +3,30 @@
 
 module Cookhouse.Environment where
 
-import Control.Monad.Except
-import Control.Monad.Reader
-import Control.Monad.Trans.Control
+import           GHC.Conc
 
-import Data.List
-import Data.Pool
+import           Control.DeepSeq
+import           Control.Monad.Except
+import           Control.Monad.Reader
+import           Control.Monad.Trans.Control
 
-import System.Directory
-import System.FilePath
+import           Data.List
+import           Data.Pool
+import           Data.Time
+import qualified Data.UUID as UUID
+import qualified Data.UUID.V4 as UUID
 
-import Database.Seakale.PostgreSQL
+import           System.Directory
+import           System.FilePath
 
-import Cookhouse.Config
-import Cookhouse.Data.Job
-import Cookhouse.Data.Project
-import Cookhouse.Errors
-import Cookhouse.Options
-import Cookhouse.Plugins.Types
+import           Database.Seakale.PostgreSQL
+
+import           Cookhouse.Config
+import           Cookhouse.Data.Job
+import           Cookhouse.Data.Project
+import           Cookhouse.Errors
+import           Cookhouse.Options
+import           Cookhouse.Plugins.Types
 
 data Environment = Environment
   { envAuthenticationPlugins :: [AuthenticationPlugin]
@@ -30,10 +36,12 @@ data Environment = Environment
   , envConnectionPool        :: Pool Connection
   , envOptions               :: Options
   , envConfig                :: Config
+  , envArtefactDirectories   :: TVar [(String, UTCTime, FilePath)]
   }
 
-defaultEnvironment :: Options -> Config -> Pool Connection -> Environment
-defaultEnvironment opts config pool = Environment
+defaultEnvironment :: Options -> Config -> Pool Connection
+                   -> TVar [(String, UTCTime, FilePath)] -> Environment
+defaultEnvironment opts config pool tvar = Environment
   { envAuthenticationPlugins = []
   , envTriggerPlugins        = []
   , envSourcePlugins         = []
@@ -41,12 +49,14 @@ defaultEnvironment opts config pool = Environment
   , envConnectionPool        = pool
   , envOptions               = opts
   , envConfig                = config
+  , envArtefactDirectories   = tvar
   }
 
-mkEnvironment :: Options -> Config -> Pool Connection -> [AuthenticationPlugin]
+mkEnvironment :: Options -> Config -> Pool Connection
+              -> TVar [(String, UTCTime, FilePath)] -> [AuthenticationPlugin]
               -> [TriggerPlugin] -> [SourcePlugin] -> [StepPlugin]
               -> Environment
-mkEnvironment opts config pool authPlugins triggerPlugins sourcePlugins
+mkEnvironment opts config pool tvar authPlugins triggerPlugins sourcePlugins
               stepPlugins =
     let authPlugins' =
           helper authPluginName authPluginWithDefaultConfig authPlugins
@@ -57,7 +67,7 @@ mkEnvironment opts config pool authPlugins triggerPlugins sourcePlugins
         stepPlugins' =
           helper stepPluginName stepPluginWithDefaultConfig stepPlugins
 
-    in (defaultEnvironment opts config pool)
+    in (defaultEnvironment opts config pool tvar)
          { envAuthenticationPlugins = authPlugins'
          , envTriggerPlugins        = triggerPlugins'
          , envSourcePlugins         = sourcePlugins'
@@ -150,6 +160,35 @@ getOptions = envOptions <$> getEnvironment
 
 getConfig :: HasEnvironment f => f Config
 getConfig = envConfig <$> getEnvironment
+
+getArtefactDirectoriesTVar :: HasEnvironment f
+                           => f (TVar [(String, UTCTime, FilePath)])
+getArtefactDirectoriesTVar = envArtefactDirectories <$> getEnvironment
+
+addArtefactDirectory :: (HasEnvironment m, MonadIO m) => FilePath -> m String
+addArtefactDirectory path = do
+  tvar <- getArtefactDirectoriesTVar
+  liftIO $ do
+    token <- UUID.toString <$> UUID.nextRandom
+    now   <- getCurrentTime
+    let expiryTime = addUTCTime (15*60) now
+    atomically $ do
+      tuples <- readTVar tvar
+      let tuples'  = filter (\(_,et,_) -> et > now) tuples
+          tuples'' = (token, expiryTime, path) : tuples'
+      tuples'' `deepseq` writeTVar tvar tuples''
+    return token
+
+getArtefactDirectory :: (HasEnvironment m, MonadIO m) => String
+                     -> m (Maybe FilePath)
+getArtefactDirectory token = do
+  tvar <- getArtefactDirectoriesTVar
+  liftIO $ do
+    now    <- getCurrentTime
+    tuples <- readTVarIO tvar
+    return $ case filter (\(t,et,_) -> t == token && et > now) tuples of
+      (_,_,p) : _ -> Just p
+      _ -> Nothing
 
 getProjects :: HasEnvironment f => f [Project]
 getProjects = configProjects <$> getConfig

@@ -7,6 +7,8 @@ module Cookhouse
   , defaultMain
   ) where
 
+import GHC.Conc
+
 import Control.Concurrent
 import Control.Monad
 
@@ -52,7 +54,8 @@ defaultMain :: [AuthenticationPlugin] -> [TriggerPlugin] -> [SourcePlugin]
 defaultMain authPlugins sourcePlugins triggerPlugins stepPlugins = do
   processOptions $ \opts config -> do
     pool <- mkConnectionPool config
-    let env = mkEnvironment opts config pool authPlugins sourcePlugins
+    tvar <- newTVarIO []
+    let env = mkEnvironment opts config pool tvar authPlugins sourcePlugins
                             triggerPlugins stepPlugins
     void $ forkOS $ triggerWorker env
     void $ forkOS $ jobWorker     env

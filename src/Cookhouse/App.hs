@@ -1,9 +1,16 @@
+{-# OPTIONS_GHC -fno-warn-orphans #-}
+
 module Cookhouse.App where
 
+import qualified Data.ByteString.Lazy as BSL
 import qualified Data.Text as T
 
-import           Servant
+import           Network.HTTP.Media ((//))
 
+import           Servant
+import           Servant.API.ContentTypes
+
+import           Cookhouse.Actions.ArtefactActions
 import           Cookhouse.Actions.JobActions
 import           Cookhouse.Actions.JobResultActions
 import           Cookhouse.Actions.PluginActions
@@ -16,6 +23,17 @@ import           Cookhouse.Data.Project
 import           Cookhouse.Data.Types
 import           Cookhouse.Environment
 import           Cookhouse.Middlewares.CORS
+
+data Artefact
+
+instance AllCTRender '[Artefact] BSL.ByteString where
+  handleAcceptH _ (AcceptHeader h) v = Just (BSL.fromStrict h, v)
+
+instance AllCTUnrender '[Artefact] BSL.ByteString where
+  handleCTypeH _ h v = Just (Right v)
+
+instance Accept Artefact where
+  contentType _ = "text" // "any"
 
 type SubCookhouseAPI =
   "signin" :> ReqBody '[FormUrlEncoded] Credentials :> Post '[JSON] Token
@@ -39,6 +57,13 @@ type SubCookhouseAPI =
                      :> "output"
                      :> QueryParam "offset" Integer :> Get '[PlainText] T.Text
 
+  :<|> "projects" :> Capture "project_id" ProjectIdentifier
+                  :> "artefact_token" :> Post '[PlainText] String
+  :<|> "jobs" :> Capture "job_id" (EntityID Job)
+              :> "artefact_token" :> Post '[PlainText] String
+  :<|> "artefacts" :> Capture "token" String :> CaptureAll "path" FilePath
+                   :> Get '[Artefact] BSL.ByteString
+
 type CookhouseAPI =
   Header "X-API-Token" Token :> Header "X-API-Authentication-Plugin" String
   :> SubCookhouseAPI
@@ -59,6 +84,10 @@ subserver =
   :<|> generateJobsAction
 
   :<|> getJobResultOutputAction
+
+  :<|> getArtefactOfProjectAction
+  :<|> getArtefactOfJobAction
+  :<|> readArtefactAction
 
 server :: ServerT CookhouseAPI SubAction
 server mToken mName = enter (Nat (actionToSubAction mToken mName)) subserver

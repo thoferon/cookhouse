@@ -25,6 +25,7 @@ data CookhouseError
   | IncorrectProjectIdentifierError String
   | CircularDependencyError String
   | IOError String
+  | ArtefactNotFound FilePath
   deriving (Eq, Show, Generic)
 
 toServantError :: CookhouseError -> ServantErr
@@ -55,6 +56,7 @@ toServantError err =
         (err400, "Incorrect project identifier: " ++ identifier)
       CircularDependencyError identifier ->
         (err500, "Circular dependency around " ++ identifier ++ ".")
+      ArtefactNotFound _ -> (err404, "Artefact not found")
       _ -> (err500, "Something went wrong.")
 
 cantBeBlankError :: String -> CookhouseError
