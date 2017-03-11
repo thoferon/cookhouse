@@ -150,12 +150,14 @@ instance FromHttpApiData (EntityID Job) where
   parseUrlPiece = fmap JobID . parseUrlPiece
 
 data JobProperty backend n a where
+  JobType              :: JobProperty PSQL One JobType
   JobStatus            :: JobProperty PSQL One JobStatus
   JobProjectIdentifier :: JobProperty PSQL One ProjectIdentifier
   JobCreationTime      :: JobProperty PSQL One UTCTime
 
 instance Property PSQL Job JobProperty where
   toColumns _ = \case
+    JobType              -> ["type"]
     JobStatus            -> ["status"]
     JobProjectIdentifier -> ["project_identifier"]
     JobCreationTime      -> ["creation_time"]
@@ -181,11 +183,11 @@ getJobDependencies jobID = do
   Job{..} <- getJob jobID
   getMany jobDependencies
 
-getLatestSucceededJob :: MonadDataLayer m s => ProjectIdentifier
+getLatestSucceededJob :: MonadDataLayer m s => ProjectIdentifier -> JobType
                       -> m (Entity Job)
-getLatestSucceededJob identifier = do
+getLatestSucceededJob identifier typ = do
   jobs <- findJobs (JobProjectIdentifier ==. identifier
-                    &&. JobStatus ==. JobSuccess)
+                    &&. JobStatus ==. JobSuccess &&. JobType ==. typ)
                    (desc JobCreationTime <> limit 1)
   case jobs of
     [] -> throwSeakaleError EntityNotFoundError

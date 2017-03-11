@@ -210,7 +210,7 @@ prepareJobDirectory project job = do
     forM_ (projectDependencies project) $ \dep -> do
       depJob <- inDataLayer $ fmap entityVal $
         case find ((==dep) . jobProjectIdentifier . entityVal) depJobs of
-          Nothing -> getLatestSucceededJob dep
+          Nothing -> getLatestSucceededJob dep PostBuild
           Just e  -> return e
       depProject <- getProject projects dep
       depDir     <- getJobDirectory depProject depJob

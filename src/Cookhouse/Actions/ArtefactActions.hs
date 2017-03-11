@@ -19,7 +19,7 @@ getArtefactOfProjectAction :: ProjectIdentifier -> Action String
 getArtefactOfProjectAction identifier = do
   projects     <- getProjects
   project      <- getProject projects identifier
-  Entity _ job <- getLatestSucceededJob identifier
+  Entity _ job <- getLatestSucceededJob identifier Build
   getArtefactAction project job
 
 getArtefactOfJobAction :: EntityID Job -> Action String
