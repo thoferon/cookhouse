@@ -1,12 +1,12 @@
 open Sharp.Core
-open Sharp.Core.Behaviour
-open Sharp.Core.Network
-
 open Sharp.Ajax
 open Sharp.Event
 open Sharp.Form
 open Sharp.Vdom
 open Sharp.Ticker
+
+open Signal
+open Network
 
 open Api.Plugin
 open Api.Session
@@ -17,7 +17,7 @@ let session_network () =
   event () >>= fun signout_event ->
   event () >>= fun sinfo_event ->
 
-  let open Behaviour.Infix in
+  let open Signal.Infix in
   let sinfo = last ~init:None sinfo_event in
   let signed_in = (function | Some _ -> true | None -> false) <$> sinfo in
 
@@ -52,7 +52,7 @@ let signin_network success_event signin_container =
   event () >>= fun signin_result ->
   every 1. () >>= fun _ -> (* to update messages *)
 
-  let open Behaviour.Infix in
+  let open Signal.Infix in
   let signin_data = (fun pl u pa -> (pl, u, pa))
                     <$> plugin <*> username <*> password
   and message = (function

@@ -2,7 +2,7 @@ open Sharp.Core
 open Sharp.VDOM
 open Sharp.Router
 
-open Behaviour
+open Signal
 open Network
 
 open Routes

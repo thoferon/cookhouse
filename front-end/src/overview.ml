@@ -3,7 +3,7 @@ open Sharp.Ajax
 open Sharp.Ticker
 open Sharp.Vdom
 
-open Behaviour
+open Signal
 open Network
 
 open Api.Job

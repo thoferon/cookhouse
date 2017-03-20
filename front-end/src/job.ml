@@ -4,7 +4,7 @@ open Sharp.Router
 open Sharp.Vdom
 open Sharp.Ticker
 
-open Behaviour
+open Signal
 open Network
 
 open Api.Job

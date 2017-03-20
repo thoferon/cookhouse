@@ -4,7 +4,7 @@ open Sharp.Event
 open Sharp.Router
 open Sharp.Vdom
 
-open Behaviour
+open Signal
 open Network
 
 open Job

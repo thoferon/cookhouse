@@ -4,7 +4,7 @@ open Sharp.Ajax
 open Sharp.Ticker
 open Sharp.Router
 
-open Behaviour
+open Signal
 open Network
 
 open Api.Project
@@ -84,7 +84,7 @@ let actual_network menu_highlight project container =
     plug_lwt jobs (Api.Job.get_project_jobs (identifier project))
   in
 
-  let open Behaviour.Infix in
+  let open Signal.Infix in
   let build_enabled =
     (fun x y -> x == y)
     <$> toggle ~init:true build_request
@@ -114,4 +114,4 @@ let project_network menu_highlight projects project_id container =
       List.find (fun project -> identifier project = project_id) projects
     in actual_network menu_highlight project container
   with | Not_found ->
-          vdom container (Behaviour.pure ()) (fun _ -> text "Project not found")
+          vdom container (Signal.pure ()) (fun _ -> text "Project not found")

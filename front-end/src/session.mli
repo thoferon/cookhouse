@@ -1,8 +1,8 @@
 open Sharp.Core
 
 val session_network : unit
-                      -> ((bool, (string * string) option) Behaviour.t
-                          * (unit option, unit) Behaviour.t) Network.t
+                      -> (((string * string) option, bool) Signal.t
+                          * (unit, unit option) Signal.t) Network.t
 
-val signin_network : ('a, (string * string) option) Behaviour.t
+val signin_network : ((string * string) option, 'a) Signal.t
                      -> Dom_html.element Js.t -> unit Network.t
