@@ -46,7 +46,7 @@ instance Show ProjectIdentifier where
 
 data Project = Project
   { projectIdentifier     :: ProjectIdentifier -- ^ A unique string
-  , projectSource         :: Source    -- ^ Location of the code (e.g. a repo)
+  , projectSource         :: Source     -- ^ Location of the code (e.g. a repo)
   , projectDependencies   :: [ProjectIdentifier]
                                         -- ^ Project identifiers of dependencies
   , projectTriggers       :: [Trigger]  -- ^ Events on which to trigger a build

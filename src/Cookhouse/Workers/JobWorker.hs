@@ -10,6 +10,7 @@ import           Control.Monad.Catch
 import           Control.Monad.Except
 import           Control.Monad.State
 
+import           Data.Function
 import           Data.List
 import           Data.Maybe
 
@@ -136,7 +137,7 @@ rollbackJob ent@(Entity jobID _) = do
   inDataLayer abortUnneededJobs
 
 performJob :: JobPhase -> Entity Job -> WorkerM Bool
-performJob phase (Entity jobID job@Job{..}) = do
+performJob phase jobEnt@(Entity jobID job@Job{..}) = do
   jobResultID <- inDataLayer $ upsertJobResult jobID phase
 
   mErr <- flip catchError (return . Just) $ do
@@ -154,7 +155,7 @@ performJob phase (Entity jobID job@Job{..}) = do
             Just ThreadKilled -> throwM ThreadKilled
             _ -> throwError $ StepPluginError stepPlugin $ show e
       flip catch handler $ do
-        eRes <- runStepPlugin step phase job dir
+        eRes <- runStepPlugin step phase jobEnt dir
         case eRes of
           Left  err   -> throwError $ StepPluginError stepPlugin err
           Right False -> throwError $ StepFailed      stepPlugin
@@ -165,9 +166,9 @@ performJob phase (Entity jobID job@Job{..}) = do
   inDataLayer $ markJobResultOver jobResultID $ fmap show mErr
   return $ isNothing mErr
 
-runStepPlugin :: Step -> JobPhase -> Job -> FilePath
+runStepPlugin :: Step -> JobPhase -> Entity Job -> FilePath
               -> WorkerM (Either String Bool)
-runStepPlugin Step{..} phase job dir = do
+runStepPlugin Step{..} phase (Entity jobID job) dir = do
   let logFile = dir </> jobOutputFile phase (jobType job)
 
   plugin <- getStepPlugin stepPlugin
@@ -176,11 +177,14 @@ runStepPlugin Step{..} phase job dir = do
         Rollback -> stepPluginRollback plugin
 
   envVars <- liftIO E.getEnvironment
-  let dir'     = maybe dir (dir </>) stepSubdir
-      keys     = map fst stepEnvVars
-      envVars' = stepEnvVars ++ filter ((`notElem` keys) . fst) envVars
+  let cookhouseVars =
+        [ ("PROJECT_ID", unProjectIdentifier (jobProjectIdentifier job))
+        , ("JOB_ID",     show (unJobID jobID))
+        ]
+      envVars' = nubBy ((==) `on` fst) $ stepEnvVars ++ cookhouseVars ++ envVars
+      dir'     = maybe dir (dir </>) stepSubdir
 
-  env <- getEnvironment
+  env  <- getEnvironment
   eRes <- liftIO $ withFile logFile AppendMode $ \h -> do
     hSetBuffering h NoBuffering
     runWorker env jobWorkerCapability $
